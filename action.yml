@@ -5,7 +5,7 @@ author: 'Thomas Schmelzer'
 inputs:
   branch:
     description: 'Branch to sync changes to in the target repo'
-    default: 'sync/update-configs'
+    default: 'sync/update'
     required: false
   commit-message:
     description: 'Commit message for sync'
@@ -25,23 +25,10 @@ inputs:
   include:
     description: 'List of files and folders to include (multi-line)'
     default: |
-      .devcontainer
-      .github
-      taskfiles
-      tests
-      .editorconfig
-      .gitignore
-      .pre-commit-config.yaml
-      CODE_OF_CONDUCT.md
-      CONTRIBUTING.md
-      Makefile
-      ruff.toml
-      Taskfile.yml
     required: false
   exclude:
     description: 'List of files and folders to exclude (multi-line)'
-    default: |
-      .github/workflows/sync.yml
+    default: |  
     required: false
   test-mode:
     description: 'If true, skip pushing changes and PR creation'
