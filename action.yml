@@ -1,5 +1,5 @@
 name: 'Sync Template'
-description: 'Sync template into a project'
+description: 'Sync template into a project and optionally create a pull request'
 author: 'Thomas Schmelzer'
 
 inputs:
@@ -20,7 +20,7 @@ inputs:
     default: 'main'
     required: false
   token:
-    description: 'Token to use for authentication'
+    description: 'Token to use for authentication (PAT recommended)'
     default: ${{ github.token }}
     required: false
   include:
@@ -43,6 +43,10 @@ inputs:
     description: 'List of files and folders to exclude (multi-line)'
     default: |
       .github/workflows/sync.yml
+    required: false
+  test-mode:
+    description: 'If true, skip pushing changes and PR creation'
+    default: 'false'
     required: false
 
 runs:
@@ -77,7 +81,6 @@ runs:
       working-directory: .template-temp
       shell: bash
       run: |
-        ls -all .
         echo "🔍 Processing exclude list..."
         while IFS= read -r item; do
           item="$(echo "$item" | xargs)"
@@ -85,7 +88,6 @@ runs:
           echo "  Excluding: $item"
           rm -rf "$item"
         done <<< "${{ inputs.exclude }}"
-        ls -all .
 
     - name: Copy template files into target repo
       shell: bash
@@ -93,16 +95,16 @@ runs:
         echo "📂 Copying template files into repo..."
         cp -R .template-temp/. .
         rm -rf .template-temp
-        ls -all .
+        echo "✅ Files copied successfully."
+        ls -al .
         tree .
 
-    - name: Commit and push changes
+    - name: Commit changes
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-
+        TEST_MODE: ${{ inputs.test-mode }}
       run: |
-        git status
         git add -A
         if git diff --cached --quiet; then
           echo "✅ No changes to commit"
@@ -111,13 +113,43 @@ runs:
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.commit-message }}"
-        
-        # Configure remote with token (critical!)
-        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-        # Skip push if in test mode
+    - name: Push branch
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        TEST_MODE: ${{ inputs.test-mode }}
+      run: |
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
         if [[ "${TEST_MODE}" == "true" ]]; then
           echo "🧪 Test mode enabled, skipping push"
         else
-          git push origin "HEAD:${{ inputs.branch }}" --force
+          echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
+          git push origin "HEAD:${{ inputs.branch }}" --force || echo "⚠️ Push failed. Check permissions."
         fi
+
+    - name: Check if branch exists
+      id: branch-exists
+      shell: bash
+      run: |
+        if git ls-remote --heads origin "${{ inputs.branch }}" | grep -q "${{ inputs.branch }}"; then
+          echo "Branch exists"
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Branch does not exist"
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create Pull Request (if branch exists)
+      if: steps.branch-exists.outputs.exists == 'true' && inputs.test-mode != 'true'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ inputs.token }}
+        branch: ${{ inputs.branch }}
+        base: main
+        title: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
+        commit-message: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
+        body: |
+          This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
+        delete-branch: true
+        fail-on-no-changes: false
