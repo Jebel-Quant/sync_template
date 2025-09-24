@@ -105,9 +105,7 @@ runs:
           git commit -m "${{ inputs.commit-message }}"
 
           # Configure remote with token
-          url = "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          echo "${url}"
-          git remote set-url origin "${url}"
+          git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
         
 
           if [[ "${TEST_MODE}" == "true" ]]; then
