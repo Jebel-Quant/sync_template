@@ -73,7 +73,8 @@ runs:
       working-directory: .template-temp
       shell: bash
       run: |
-        rm -rf .git
+        [ -d .git ] && rm -rf .git
+        ls -R 
 
     - name: Apply excludes
       if: ${{ inputs.exclude != '' }}
@@ -85,8 +86,9 @@ runs:
           item="$(echo "$item" | xargs)"
           [ -z "$item" ] && continue
           echo "  Excluding: $item"
-          rm -rf "$item"
+          rm -rf "$item" 2>/dev/null || true
         done <<< "${{ inputs.exclude }}"
+        tree -L 2 .
 
     - name: Commit and push changes
       shell: bash
@@ -100,12 +102,12 @@ runs:
           git status
           git add -A
           if git diff --cached --quiet; then
-          echo "✅ No changes to commit"
-          exit 0
+            echo "✅ No changes to commit"
+            exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "${{ inputs.commit-message }}"
+          # git commit -m "${{ inputs.commit-message }}"
 
           # Configure remote with token
           #git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
@@ -117,5 +119,3 @@ runs:
           #  git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
           #  echo "✅ Changes pushed"
           #fi
-
-#no
