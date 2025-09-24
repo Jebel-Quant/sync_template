@@ -21,8 +21,7 @@ inputs:
     required: false
   token:
     description: 'Token to use for authentication (PAT recommended)'
-    default: ${{ github.token }}
-    required: false
+    required: true
   include:
     description: 'List of files and folders to include (multi-line)'
     default: |
