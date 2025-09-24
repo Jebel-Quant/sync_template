@@ -72,16 +72,31 @@ runs:
           exit 0
         fi
 
+        # Check if workflow files are being modified
+        if git diff --cached --name-only | grep -q "^\.github/workflows/"; then
+          echo "⚠️ Warning: Workflow files (.github/workflows/) are being modified."
+          echo "   The default GITHUB_TOKEN does not have permission to update workflow files."
+          echo "   You need to use a Personal Access Token (PAT) with 'workflow' scope."
+          echo "   See: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token"
+        fi
+
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.commit-message }}"
 
         git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+        git remote -v
+        git branch -vv
 
         if [[ "${TEST_MODE}" == "true" ]]; then
           echo "🧪 Test mode: skipping push"
         else
-          echo "🚀 Pushing to '${{ inputs.branch }}'..."
-          git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
-          echo "✅ Sync complete"
+          echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
+          if git push origin "HEAD:${{ inputs.branch }}" --force-with-lease; then
+            echo "✅ Sync complete"
+          else
+            echo "⚠️ Push failed. Check permissions."
+            echo "   If you're updating workflow files, you need a PAT with 'workflow' scope."
+            exit 1
+          fi
         fi
