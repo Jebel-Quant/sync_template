@@ -44,6 +44,7 @@ runs:
         sparse-checkout: ${{ inputs.include }}
         sparse-checkout-cone-mode: false
         fetch-depth: 0
+        token: ${{ inputs.token }}
 
     - name: Clean template and apply excludes
       shell: bash
