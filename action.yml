@@ -92,7 +92,7 @@ runs:
         git remote -v | sed -E 's@(https://)[^@]+@\\1****@g'
     
         echo "🔁 Testing ls-remote with this token..."
-        git ls-remote --heads origin || echo "❌ ls-remote failed"`
+        git ls-remote --heads origin || echo "❌ ls-remote failed"
 
         if [[ "${TEST_MODE}" == "true" ]]; then
           echo "🧪 Test mode: skipping push"
