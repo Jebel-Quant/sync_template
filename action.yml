@@ -100,9 +100,6 @@ runs:
 
     - name: Commit changes
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-        TEST_MODE: ${{ inputs.test-mode }}
       run: |
         git add -A
         if git diff --cached --quiet; then
