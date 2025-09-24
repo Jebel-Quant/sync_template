@@ -120,4 +120,3 @@ runs:
         body: |
           This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
         delete-branch: true
-        #fail-on-no-changes: false
