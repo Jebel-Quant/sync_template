@@ -19,6 +19,10 @@ inputs:
     description: 'Branch to sync from in the template repo'
     default: 'main'
     required: false
+  token:
+    description: 'Token to use for authentication'
+    default: ${{ github.token }}
+    required: false
   include:
     description: 'List of files and folders to include (multi-line)'
     default: |
@@ -94,6 +98,9 @@ runs:
 
     - name: Commit and push changes
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+
       run: |
         git status
         git add -A
