@@ -1,0 +1,64 @@
+name: Test Sync Template Action
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    name: Test Sync Template Action
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup test repository
+        run: |
+          # Create a test repository structure
+          mkdir -p test-repo
+          cd test-repo
+          git init
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          echo "# Test Repository" > README.md
+          git add README.md
+          git commit -m "Initial commit"
+          
+          # Create a branch to test on
+          git checkout -b test-branch
+          
+      - name: Run Sync Template Action
+        uses: ./
+        with:
+          template-repository: ${{ github.repository }}
+          branch: test-branch
+          commit-message: "test: sync template files"
+          include: |
+            CODE_OF_CONDUCT.md
+            CONTRIBUTING.md
+          exclude: |
+            README.md
+            
+      - name: Verify synced files
+        run: |
+          cd test-repo
+          # Check that the files were synced correctly
+          if [ ! -f CODE_OF_CONDUCT.md ]; then
+            echo "❌ CODE_OF_CONDUCT.md was not synced"
+            exit 1
+          fi
+          
+          if [ ! -f CONTRIBUTING.md ]; then
+            echo "❌ CONTRIBUTING.md was not synced"
+            exit 1
+          fi
+          
+          if [ "$(git log -1 --pretty=%B)" != "test: sync template files" ]; then
+            echo "❌ Commit message is incorrect"
+            exit 1
+          fi
+          
+          echo "✅ All tests passed"
