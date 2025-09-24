@@ -38,10 +38,6 @@ inputs:
   exclude:
     description: 'List of files and folders to exclude (multi-line)'
     default: |
-      .git
-      README.md
-      LICENSE
-      action.yml
       .github/workflows/sync.yml
     required: false
 
@@ -66,6 +62,12 @@ runs:
         sparse-checkout-cone-mode: false
         fetch-depth: 0
 
+    - name: Remove .git folder of template repo
+      working-directory: .template-temp
+      shell: bash
+      run: |
+        rm -rf .git
+
     - name: Apply excludes
       if: ${{ inputs.exclude != '' }}
       working-directory: .template-temp
@@ -85,7 +87,7 @@ runs:
       shell: bash
       run: |
         echo "📂 Copying template files into repo..."
-        cp -R .template-temp/* .
+        cp -R .template-temp/. .
         rm -rf .template-temp
         ls -all .
         tree .
@@ -93,6 +95,7 @@ runs:
     - name: Commit and push changes
       shell: bash
       run: |
+        git status
         git add -A
         if git diff --cached --quiet; then
           echo "✅ No changes to commit"
