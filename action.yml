@@ -110,7 +110,6 @@ runs:
         fi
 
     - name: Create Pull Request (if branch exists)
-      if: steps.branch-exists.outputs.exists == 'true' && inputs.test-mode != 'true'
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ inputs.token }}
@@ -121,4 +120,4 @@ runs:
         body: |
           This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
         delete-branch: true
-        fail-on-no-changes: false
+        #fail-on-no-changes: false
