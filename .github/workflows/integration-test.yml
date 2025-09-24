@@ -24,6 +24,7 @@ jobs:
       - name: Test action in workflow
         uses: ./
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           template-repository: ${{ github.repository }}
           branch: test-branch
           include: |
@@ -33,7 +34,5 @@ jobs:
             README.md
             LICENSE
         env:
-          # This is needed to avoid the action failing in the test environment
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Set to true to skip the actual push in test environment
           TEST_MODE: "true"
