@@ -94,7 +94,7 @@ runs:
           GITHUB_TOKEN: ${{ inputs.token }}
           TEST_MODE: ${{ inputs.test-mode }}
       run: |
-          cp -R .template_temp/. .
+          cp -R .template-temp/. .
           rm -R .template-temp
         
           git status
