@@ -115,4 +115,3 @@ runs:
         body: |
           This PR updates configuration files from
           [${{ inputs.template-repository }}@${{ inputs.template-branch }}](https://github.com/${{ inputs.template-repository }}/tree/${{ inputs.template-branch }}).
-        delete-branch: true
