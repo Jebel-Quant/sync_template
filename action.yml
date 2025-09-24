@@ -108,26 +108,14 @@ runs:
           git commit -m "${{ inputs.commit-message }}"
 
           # Configure remote with token
-          git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+          #git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
         
-          if [[ "${TEST_MODE}" == "true" ]]; then
-            echo "🧪 Test mode enabled, skipping push"
-          else
-            echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
-            git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
-            echo "✅ Changes pushed"
-          fi
+          #if [[ "${TEST_MODE}" == "true" ]]; then
+          #  echo "🧪 Test mode enabled, skipping push"
+          #else
+          #  echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
+          #  git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
+          #  echo "✅ Changes pushed"
+          #fi
 
-    - name: Create Pull Request (if branch exists)
-      if: steps.branch-exists.outputs.exists == 'true' && inputs.test-mode != 'true'
-      uses: peter-evans/create-pull-request@v7
-      with:
-        token: ${{ inputs.token }}
-        branch: ${{ inputs.branch }}
-        base: main
-        title: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
-        commit-message: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
-        body: |
-          This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
-        delete-branch: true
-        fail-on-no-changes: false
+#no
