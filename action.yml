@@ -74,25 +74,21 @@ runs:
           exit 0
         fi
 
-        # Check if workflow files are being modified
+        # Warn if workflow files are modified
         if git diff --cached --name-only | grep -q "^\.github/workflows/"; then
-          echo "⚠️ Warning: Workflow files (.github/workflows/) are being modified."
-          echo "   The default GITHUB_TOKEN does not have permission to update workflow files."
-          echo "   You need to use a Personal Access Token (PAT) with 'workflow' scope."
-          echo "   See: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token"
+          echo "⚠️ Workflow files detected. Use PAT with 'workflow' scope."
         fi
 
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.commit-message }}"
 
+        # Configure remote with token
         git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
-        git remote -v
-        git branch -vv
 
         echo "✅ Remote after reset (masked):"
         git remote -v | sed -E 's@(https://)[^@]+@\\1****@g'
-    
+
         echo "🔁 Testing ls-remote with this token..."
         git ls-remote --heads origin || echo "❌ ls-remote failed"
 
@@ -104,19 +100,19 @@ runs:
             echo "✅ Sync complete"
           else
             echo "⚠️ Push failed. Check permissions."
-            echo "   If you're updating workflow files, you need a PAT with 'workflow' scope."
             exit 1
           fi
         fi
 
-    - name: Create Pull Request (if branch exists)
+    - name: Create Pull Request (if not in test mode)
+      if: ${{ inputs.test-mode != 'true' }}
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ inputs.token }}
         branch: ${{ inputs.branch }}
-        base: main
+        commit-message: ${{ inputs.commit-message }}
         title: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
-        commit-message: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
         body: |
-          This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
+          This PR updates configuration files from
+          [${{ inputs.template-repository }}@${{ inputs.template-branch }}](https://github.com/${{ inputs.template-repository }}/tree/${{ inputs.template-branch }}).
         delete-branch: true
