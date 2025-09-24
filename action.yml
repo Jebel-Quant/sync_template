@@ -97,7 +97,7 @@ runs:
         git ls-remote --heads origin || echo "❌ ls-remote failed"
 
         if [[ "${TEST_MODE}" == "true" ]]; then
-          echo "🧪 Test mode: skipping push"
+          echo "🧪 Test mode: skipping push and PR creation"
         else
           echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
           if git push origin "HEAD:${{ inputs.branch }}" --force-with-lease; then
@@ -108,3 +108,17 @@ runs:
             exit 1
           fi
         fi
+
+    - name: Create Pull Request (if branch exists)
+      if: steps.branch-exists.outputs.exists == 'true' && inputs.test-mode != 'true'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ inputs.token }}
+        branch: ${{ inputs.branch }}
+        base: main
+        title: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
+        commit-message: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
+        body: |
+          This PR updates configuration files from `${{ inputs.template-repository }}@${{ inputs.template-branch }}`.
+        delete-branch: true
+        fail-on-no-changes: false
