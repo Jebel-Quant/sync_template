@@ -88,44 +88,36 @@ runs:
           rm -rf "$item"
         done <<< "${{ inputs.exclude }}"
 
-    - name: Copy template files into target repo
-      shell: bash
-      run: |
-        echo "📂 Copying template files into repo..."
-        cp -R .template-temp/. .
-        rm -rf .template-temp
-        echo "✅ Files copied successfully."
-        ls -al .
-        tree .
-
-    - name: Check for changes
-      id: check-changes
-      shell: bash
-      run: |
-        git add -A
-        if git diff --cached --quiet; then
-          echo "✅ No changes to commit"
-          echo "has-changes=false" >> "$GITHUB_OUTPUT"
-        else
-          echo "Changes detected"
-          echo "has-changes=true" >> "$GITHUB_OUTPUT"
-          # Show what changed
-          git diff --cached --stat
-        fi
-
     - name: Commit and push changes
-      if: steps.check-changes.outputs.has-changes == 'true' && inputs.test-mode != 'true'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+          GITHUB_TOKEN: ${{ inputs.token }}
+          TEST_MODE: ${{ inputs.test-mode }}
       run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git commit -m "${{ inputs.commit-message }}"
+          git status
+          git add -A
+          if git diff --cached --quiet; then
+          echo "✅ No changes to commit"
+          exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "${{ inputs.commit-message }}"
+
+          # Configure remote with token
+          url = "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          echo "${url}"
+          git remote set-url origin "${url}"
         
-        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-        git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
-        echo "✅ Changes pushed to branch '${{ inputs.branch }}'"
+
+          if [[ "${TEST_MODE}" == "true" ]]; then
+          echo "🧪 Test mode enabled, skipping push"
+          else
+          echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
+          git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
+          echo "✅ Changes pushed"
+          fi
+
 
     #- name: Push branch
     #  shell: bash
