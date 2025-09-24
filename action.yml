@@ -112,6 +112,9 @@ runs:
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.commit-message }}"
         
+        # Configure remote with token (critical!)
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
         # Skip push if in test mode
         if [[ "${TEST_MODE}" == "true" ]]; then
           echo "🧪 Test mode enabled, skipping push"
