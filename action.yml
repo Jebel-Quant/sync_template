@@ -3,106 +3,85 @@ description: 'Sync template into a project and optionally create a pull request'
 author: 'Thomas Schmelzer'
 
 inputs:
+  token:
+    description: 'GitHub token or PAT for authentication'
+    required: true
+  template-repository:
+    description: 'Template repository to sync from'
+    required: true
+  template-branch:
+    description: 'Branch in the template repo'
+    default: 'main'
   branch:
-    description: 'Branch to sync changes to in the target repo'
+    description: 'Target branch in the current repo'
     default: 'sync/update'
-    required: false
   commit-message:
     description: 'Commit message for sync'
     default: 'chore: sync template'
-    required: false
-  template-repository:
-    description: 'Repository to sync from'
-    default: ''
-    required: true
-  template-branch:
-    description: 'Branch to sync from in the template repo'
-    default: 'main'
-    required: false
-  token:
-    description: 'Token to use for authentication (PAT recommended)'
-    required: true
   include:
-    description: 'List of files and folders to include (multi-line)'
+    description: 'Files and folders to include (multi-line)'
     default: |
-    required: false
   exclude:
-    description: 'List of files and folders to exclude (multi-line)'
-    default: |  
-    required: false
+    description: 'Files and folders to exclude (multi-line)'
+    default: |
   test-mode:
-    description: 'If true, skip pushing changes and PR creation'
+    description: 'If true, skip push and PR creation'
     default: 'false'
-    required: false
 
 runs:
   using: "composite"
   steps:
-    - name: Ensure Git repository
-      run: |
-        git rev-parse --is-inside-work-tree > /dev/null || {
-          echo "❌ Not in a git repository"
-          exit 1
-        }
+    - name: Ensure inside a git repository
       shell: bash
+      run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
 
-    - name: Sparse checkout from template repo
+    - name: Sparse checkout template
       uses: actions/checkout@v5
       with:
         repository: ${{ inputs.template-repository }}
-        path: .template-temp
         ref: ${{ inputs.template-branch }}
+        path: .template-temp
         sparse-checkout: ${{ inputs.include }}
         sparse-checkout-cone-mode: false
         fetch-depth: 0
 
-    - name: Remove .git folder of template repo
-      working-directory: .template-temp
+    - name: Clean template and apply excludes
       shell: bash
-      run: |
-        [ -d .git ] && rm -rf .git
-        ls -R 
-
-    - name: Apply excludes
-      if: ${{ inputs.exclude != '' }}
       working-directory: .template-temp
-      shell: bash
       run: |
-        echo "🔍 Processing exclude list..."
-        while IFS= read -r item; do
+        rm -rf .git
+        [[ -n "${{ inputs.exclude }}" ]] && while IFS= read -r item; do
           item="$(echo "$item" | xargs)"
-          [ -z "$item" ] && continue
-          echo "  Excluding: $item"
-          rm -rf "$item" 2>/dev/null || true
+          [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
         done <<< "${{ inputs.exclude }}"
-        tree -L 2 .
+        tree -L 2 || ls -R
 
-    - name: Commit and push changes
+    - name: Commit and optionally push changes
       shell: bash
       env:
-          GITHUB_TOKEN: ${{ inputs.token }}
-          TEST_MODE: ${{ inputs.test-mode }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        TEST_MODE: ${{ inputs.test-mode }}
       run: |
-          cp -R .template-temp/. .
-          rm -R .template-temp
-        
-          git status
-          git add -A
-          if git diff --cached --quiet; then
-            echo "✅ No changes to commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # git commit -m "${{ inputs.commit-message }}"
+        cp -R .template-temp/. .
+        rm -rf .template-temp
 
-          # Configure remote with token
-          #git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
-        
-          #if [[ "${TEST_MODE}" == "true" ]]; then
-          #  echo "🧪 Test mode enabled, skipping push"
-          #else
-          #  echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
-          #  git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
-          #  echo "✅ Changes pushed"
-          #fi
+        git add -A
+        git status
+        if git diff --cached --quiet; then
+          echo "✅ No changes to commit"
+          exit 0
+        fi
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git commit -m "${{ inputs.commit-message }}"
+
+        git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+
+        if [[ "${TEST_MODE}" == "true" ]]; then
+          echo "🧪 Test mode: skipping push"
+        else
+          echo "🚀 Pushing to '${{ inputs.branch }}'..."
+          git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
+          echo "✅ Sync complete"
+        fi
