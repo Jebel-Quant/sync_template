@@ -94,6 +94,9 @@ runs:
           GITHUB_TOKEN: ${{ inputs.token }}
           TEST_MODE: ${{ inputs.test-mode }}
       run: |
+          cp -R .template_temp/. .
+          rm -R .template-temp
+        
           git status
           git add -A
           if git diff --cached --quiet; then
@@ -115,33 +118,6 @@ runs:
           git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
           echo "✅ Changes pushed"
           fi
-
-
-    #- name: Push branch
-    #  shell: bash
-    #  env:
-    #    GITHUB_TOKEN: ${{ inputs.token }}
-    #    TEST_MODE: ${{ inputs.test-mode }}
-    #  run: |
-    #    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-    #    if [[ "${TEST_MODE}" == "true" ]]; then
-    #      echo "🧪 Test mode enabled, skipping push"
-    #    else
-    #      echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
-    #      git push origin "HEAD:${{ inputs.branch }}" --force || echo "⚠️ Push failed. Check permissions."
-    #    fi
-
-    #- name: Check if branch exists
-    #  id: branch-exists
-    #  shell: bash
-    #  run: |
-    #    if git ls-remote --heads origin "${{ inputs.branch }}" | grep -q "${{ inputs.branch }}"; then
-    #      echo "Branch exists"
-    #      echo "exists=true" >> "$GITHUB_OUTPUT"
-    #    else
-    #      echo "Branch does not exist"
-    #      echo "exists=false" >> "$GITHUB_OUTPUT"
-    #    fi
 
     - name: Create Pull Request (if branch exists)
       if: steps.branch-exists.outputs.exists == 'true' && inputs.test-mode != 'true'
