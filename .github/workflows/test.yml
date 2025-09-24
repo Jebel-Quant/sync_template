@@ -31,8 +31,8 @@ jobs:
           git checkout -b test-branch
           
       - name: Run Sync Template Action
-        uses: ./
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           template-repository: ${{ github.repository }}
           branch: test-branch
           commit-message: "test: sync template files"
