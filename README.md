@@ -6,50 +6,74 @@ into other repositories.
 ## Usage
 
 ```yaml
-name: Sync Template Files
+# Workflow: Sync
+# Purpose: This workflow synchronizes configuration files from the template repository
+#          to other repositories, creating a pull request with the changes.
+#
+# Trigger: This workflow runs manually via workflow_dispatch
+#
+# Components:
+#   - 📥 Checkout the target repository
+#   - 🔄 Sync configuration templates
+#   - 📝 Create a pull request with the changes
+
+name: SYNC
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
-  workflow_dispatch:  # Allow manual triggering
+    - cron: '0 0 * * 1'  # Weekly on Monday at midnight
+
+permissions:
+  contents: write  # Needed to create releases
+
+env:
+  TEMPLATE_REPO: 'tschm/latex'
+  TEMPLATE_BRANCH: 'main'
+  TARGET_BRANCH: 'sync/update'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # Optional: Add permissions for the default GITHUB_TOKEN
-    # permissions:
-    #   contents: write
-    #   workflows: write  # Required to modify workflow files
     steps:
-      - name: Checkout
+      - name: Checkout the target repo
         uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: 'false'
 
       - name: Sync Template
+        id: sync
         uses: jebel-quant/sync_template@main
         with:
-          template-repository: 'organization/template-repo'
-          template-branch: 'main'  # Use 'master' for older repositories
-          branch: 'sync/update-configs'
-          commit-message: 'chore: sync template files'
+          token: ${{ secrets.PAT_TOKEN }}
+          template-repository: ${{ env.TEMPLATE_REPO }}
+          template-branch: ${{ env.TEMPLATE_BRANCH }}
+          branch: ${{ env.TARGET_BRANCH }}
+          commit-message: "chore: sync template files"
           include: |
             .github
-            .devcontainer
-            CODE_OF_CONDUCT.md
-          exclude: |
-            README.md
-            LICENSE
-          # Option 1: Use default GITHUB_TOKEN (won't work for workflow files unless permissions are set above)
-          token: ${{ secrets.GITHUB_TOKEN }}
-          
-          # Option 2: Use a PAT with workflow permissions (recommended for syncing workflow files)
-          # token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
+            templates
+            .gitignore
+            .markdownlint.yaml
+            .editorconfig
+            .pre-commit-config.yaml
+            Makefile
 ```
 
 ## Inputs
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-
+| token | GitHub token or PAT for authentication | Yes | N/A |
+| template-repository | Template repository to sync from | Yes | N/A |
+| template-branch | Branch in the template repo | No | main |
+| branch | Target branch in the current repo | No | sync/update |
+| commit-message | Commit message for sync | No | chore: sync template |
+| include | Files and folders to include (multi-line) | No | (empty) |
+| exclude | Files and folders to exclude (multi-line) | No | (empty) |
+| test-mode | If true, skip push and PR creation | No | false |
 
 ## How It Works
 
@@ -114,7 +138,7 @@ The action includes comprehensive testing to ensure it works correctly:
 
 ### Test Mode
 
-The action supports a test mode that can be enabled by setting the `TEST_MODE` environment variable to `true`. 
+The action supports a test mode that can be enabled by setting the `test-mode` input parameter to `true`. 
 In test mode, the action will perform all operations 
 except the final git push, making it safe to test 
 in CI environments.
@@ -122,7 +146,7 @@ in CI environments.
 Example:
 
 ```yaml
-- name: Test Sync Template Action
+- name: Test Sync Template Actio
   uses: jebel-quant/sync_template@main
   with:
     template-repository: 'organization/template-repo'
