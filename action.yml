@@ -107,12 +107,16 @@ runs:
         ls -all
         rm -rf .git
         echo "Removing the git folder"
+        ls -all
         echo "Excludes: ${{ steps.config.outputs.exclude }}"
         
-        [[ -n "${{ steps.config.outputs.exclude }}" ]] && while IFS= read -r item; do
-          item="$(echo "$item" | xargs)"
-          [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
-        done <<< "${{ steps.config.outputs.exclude }}"
+        if [[ -n "${{ steps.config.outputs.exclude }}" ]]; then
+          echo "The exclude list is not empty"
+          while IFS= read -r item; do
+            item="$(echo "$item" | xargs)"
+            [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
+          done <<< "${{ steps.config.outputs.exclude }}"
+        fi
 
     - name: Commit and optionally push changes
       shell: bash
