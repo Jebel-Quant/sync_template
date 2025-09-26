@@ -106,6 +106,9 @@ runs:
         echo "Checkout template after sparse checkout"
         ls -all
         rm -rf .git
+        echo "Removing the git folder"
+        echo "Excludes: ${{ steps.config.outputs.exclude }}"
+        
         [[ -n "${{ steps.config.outputs.exclude }}" ]] && while IFS= read -r item; do
           item="$(echo "$item" | xargs)"
           [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
