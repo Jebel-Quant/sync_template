@@ -21,18 +21,23 @@ jobs:
       - name: Run test script
         run: ./tests/test-action.sh
 
-      - name: Test action in workflow
-        uses: ./
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create template.yml file
+        run: |
+          cat > template.yml << EOF
           template-repository: ${{ github.repository }}
-          branch: test-branch
+          template-branch: main
           include: |
             CODE_OF_CONDUCT.md
             CONTRIBUTING.md
           exclude: |
             README.md
             LICENSE
-        env:
-          # Set to true to skip the actual push in test environment
-          TEST_MODE: "true"
+          EOF
+          
+      - name: Test action in workflow
+        uses: ./
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          source: './template.yml'
+          branch: test-branch
+          test-mode: "true"

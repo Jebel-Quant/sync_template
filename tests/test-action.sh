@@ -83,6 +83,20 @@ echo -e "${YELLOW}Simulating action execution${NC}"
 # Save the branch name to ensure we stay on it
 BRANCH_NAME="sync/update-configs"
 
+# Create template.yml file
+echo "Creating template.yml file"
+cat > template.yml << EOF
+template-repository: ${SOURCE_REPO}
+template-branch: main
+include: |
+  CODE_OF_CONDUCT.md
+  CONTRIBUTING.md
+  .github/
+exclude: |
+  README.md
+  LICENSE
+EOF
+
 # Step 1: Sparse checkout from template repo
 echo "Performing sparse checkout"
 git remote add template "${SOURCE_REPO}"

@@ -24,20 +24,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Create a template.yml file in your repository with your template configuration
+      # Example template.yml:
+      # template-repository: 'organization/template-repo'
+      # template-branch: 'main'
+      # include: |
+      #   .github
+      #   .devcontainer
+      # exclude: |
+      #   README.md
+
       - name: Sync Template
         uses: jebel-quant/sync_template@main
         with:
-          template-repository: 'organization/template-repo'
-          template-branch: 'main'  # Use 'master' for older repositories
+          source: './template.yml'  # Path to your configuration file
           branch: 'sync/update-configs'
           commit-message: 'chore: sync template files'
-          include: |
-            .github
-            .devcontainer
-            CODE_OF_CONDUCT.md
-          exclude: |
-            README.md
-            LICENSE
           # Option 1: Use default GITHUB_TOKEN (won't work for workflow files unless permissions are set above)
           token: ${{ secrets.GITHUB_TOKEN }}
           
@@ -49,6 +51,11 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
+| token | GitHub token or PAT for authentication | Yes | N/A |
+| source | Path to the YAML configuration file containing template settings | Yes | N/A |
+| branch | Target branch in the current repo | No | sync/update |
+| commit-message | Commit message for sync | No | chore: sync template |
+| test-mode | If true, skip push and PR creation | No | false |
 
 
 ## How It Works
@@ -87,6 +94,36 @@ When using this action to sync workflow files (files in `.github/workflows/`), y
 
 The action will automatically detect when workflow files are being modified and provide appropriate warnings.
 
+### Configuration File
+
+The action reads template configuration from a YAML file specified by the `source` parameter. This allows you to maintain template settings separately from your workflow files.
+
+Example configuration file (e.g., `template.yml`):
+
+```yaml
+# Required: Repository to sync from
+template-repository: 'organization/template-repo'
+
+# Optional: Branch in the template repository (defaults to 'main')
+template-branch: 'main'
+
+# Optional: Files and folders to include
+include: |
+  .github
+  .devcontainer
+  CODE_OF_CONDUCT.md
+
+# Optional: Files and folders to exclude
+exclude: |
+  README.md
+  LICENSE
+```
+
+When using the configuration file:
+1. You must specify the path to this file using the `source` parameter
+2. The file must contain at least the `template-repository` value
+3. Other values (`template-branch`, `include`, `exclude`) are optional
+
 ### Include and Exclude Parameters
 
 - **Include**: Specifies which files and folders to sync from the template repository. This uses Git's sparse checkout feature to only download the specified files.
@@ -114,7 +151,7 @@ The action includes comprehensive testing to ensure it works correctly:
 
 ### Test Mode
 
-The action supports a test mode that can be enabled by setting the `TEST_MODE` environment variable to `true`. 
+The action supports a test mode that can be enabled by setting the `test-mode` input parameter to `true`. 
 In test mode, the action will perform all operations 
 except the final git push, making it safe to test 
 in CI environments.
@@ -125,7 +162,7 @@ Example:
 - name: Test Sync Template Action
   uses: jebel-quant/sync_template@main
   with:
-    template-repository: 'organization/template-repo'
+    source: './template.yml'
     token: ${{ secrets.GITHUB_TOKEN }}
     test-mode: "true"
 ```
