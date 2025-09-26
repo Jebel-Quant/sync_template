@@ -82,10 +82,10 @@ runs:
     - name: Checkout parsed data
       shell: bash
       run: |
-        echo "Repo ${{ steps.config.outputs.template_repository }}"
-        echo "Branch ${{ steps.config.outputs.template_branch }}"
-        echo "Include ${{ steps.config.outputs.include }}"
-        echo "Exclude ${{ steps.config.outputs.exclude }}"
+        echo "Template repository: ${{ steps.config.outputs.template_repository }}"
+        echo "Branch in template:  ${{ steps.config.outputs.template_branch }}"
+        echo "Include:\n ${{ steps.config.outputs.include }}"
+        echo "Exclude:\n ${{ steps.config.outputs.exclude }}"
 
     - name: Sparse checkout template
       uses: actions/checkout@v5
@@ -103,6 +103,8 @@ runs:
       shell: bash
       working-directory: .template-temp
       run: |
+        echo "Checkout template after sparse checkout"
+        ls -all
         rm -rf .git
         [[ -n "${{ steps.config.outputs.exclude }}" ]] && while IFS= read -r item; do
           item="$(echo "$item" | xargs)"
