@@ -40,6 +40,6 @@ jobs:
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          source: './template.yml'
+          source: 'template.yml'
           branch: test-branch
           test-mode: "true"
