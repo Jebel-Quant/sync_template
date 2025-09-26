@@ -110,7 +110,7 @@ runs:
           item="$(echo "$item" | xargs)"
           [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
         done <<< "${{ steps.config.outputs.exclude }}"
-        tree -L 2 || ls -R
+        # tree -L 2 || ls -R
 
     - name: Commit and optionally push changes
       shell: bash
