@@ -15,12 +15,6 @@ inputs:
   commit-message:
     description: 'Commit message for sync'
     default: 'chore: sync template'
-  include:
-    description: 'Files and folders to include (multi-line)'
-    default: |
-  exclude:
-    description: 'Files and folders to exclude (multi-line)'
-    default: |
   test-mode:
     description: 'If true, skip push and PR creation'
     default: 'false'
