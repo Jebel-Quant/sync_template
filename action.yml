@@ -22,6 +22,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Checkout the target repo
+      uses: actions/checkout@v5
+      with:
+        token: ${{ inputs.token }}
+        fetch-depth: 0
+        #persist-credentials: 'false'
+
     - name: Ensure inside a git repository
       shell: bash
       run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
@@ -80,7 +87,7 @@ runs:
         sparse-checkout-cone-mode: false
         fetch-depth: 0
         token: ${{ inputs.token }}
-        persist-credentials: 'false'
+        #persist-credentials: 'false'
 
     - name: Clean template and apply excludes
       shell: bash
@@ -125,7 +132,7 @@ runs:
         git commit -m "${{ inputs.commit-message }}"
 
         # Configure remote with token
-        git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+        # git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
 
         echo "✅ Remote after reset (masked):"
         git remote -v | sed -E 's@(https://)[^@]+@\\1****@g'
