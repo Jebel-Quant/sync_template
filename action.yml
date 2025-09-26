@@ -6,24 +6,30 @@ inputs:
   token:
     description: 'GitHub token or PAT for authentication'
     required: true
-  template-repository:
-    description: 'Template repository to sync from'
+  source:
+    description: 'Path to the YAML configuration file containing template settings'
     required: true
-  template-branch:
-    description: 'Branch in the template repo'
-    default: 'main'
+  #template-repository:
+  #  description: 'Template repository to sync from (overrides value from source file)'
+  #  required: false
+  #template-branch:
+  #  description: 'Branch in the template repo (overrides value from source file)'
+  #  required: false
+  #  default: 'main'
   branch:
     description: 'Target branch in the current repo'
     default: 'sync/update'
   commit-message:
     description: 'Commit message for sync'
     default: 'chore: sync template'
-  include:
-    description: 'Files and folders to include (multi-line)'
-    default: |
-  exclude:
-    description: 'Files and folders to exclude (multi-line)'
-    default: |
+  #include:
+  #  description: 'Files and folders to include (multi-line) (overrides value from source file)'
+  #  required: false
+  #  default: |
+  #exclude:
+  #  description: 'Files and folders to exclude (multi-line) (overrides value from source file)'
+  #  required: false
+  #  default: |
   test-mode:
     description: 'If true, skip push and PR creation'
     default: 'false'
@@ -35,13 +41,66 @@ runs:
       shell: bash
       run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
 
+    - name: Parse configuration file
+      shell: bash
+      id: config
+      run: |
+        echo "Reading configuration from ${{ inputs.source }}"
+        if [ ! -f "${{ inputs.source }}" ]; then
+          echo "::error::Configuration file not found: ${{ inputs.source }}"
+          exit 1
+        fi
+        
+        # Install yq if not available
+        if ! command -v yq &> /dev/null; then
+          echo "Installing yq..."
+          wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /tmp/yq
+          YQ_CMD="/tmp/yq"
+        else
+          YQ_CMD="yq"
+        fi
+        
+        # Read values from config file
+        TEMPLATE_REPO="${{ inputs.template-repository }}"
+        if [ -z "$TEMPLATE_REPO" ]; then
+          TEMPLATE_REPO=$($YQ_CMD '.template-repository' "${{ inputs.source }}")
+          if [ "$TEMPLATE_REPO" = "null" ]; then
+            echo "::error::template-repository not found in config file and not provided as input"
+            exit 1
+          fi
+        fi
+        echo "template_repository=$TEMPLATE_REPO" >> $GITHUB_OUTPUT
+        
+        TEMPLATE_BRANCH="${{ inputs.template-branch }}"
+        if [ -z "$TEMPLATE_BRANCH" ]; then
+          TEMPLATE_BRANCH=$($YQ_CMD '.template-branch // "main"' "${{ inputs.source }}")
+        fi
+        echo "template_branch=$TEMPLATE_BRANCH" >> $GITHUB_OUTPUT
+        
+        INCLUDE="${{ inputs.include }}"
+        if [ -z "$INCLUDE" ]; then
+          INCLUDE=$($YQ_CMD '.include // ""' "${{ inputs.source }}")
+        fi
+        echo "include<<EOF" >> $GITHUB_OUTPUT
+        echo "$INCLUDE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        EXCLUDE="${{ inputs.exclude }}"
+        if [ -z "$EXCLUDE" ]; then
+          EXCLUDE=$($YQ_CMD '.exclude // ""' "${{ inputs.source }}")
+        fi
+        echo "exclude<<EOF" >> $GITHUB_OUTPUT
+        echo "$EXCLUDE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
     - name: Sparse checkout template
       uses: actions/checkout@v5
       with:
-        repository: ${{ inputs.template-repository }}
-        ref: ${{ inputs.template-branch }}
+        repository: ${{ steps.config.outputs.template_repository }}
+        ref: ${{ steps.config.outputs.template_branch }}
         path: .template-temp
-        sparse-checkout: ${{ inputs.include }}
+        sparse-checkout: ${{ steps.config.outputs.include }}
         sparse-checkout-cone-mode: false
         fetch-depth: 0
         token: ${{ inputs.token }}
@@ -52,10 +111,10 @@ runs:
       working-directory: .template-temp
       run: |
         rm -rf .git
-        [[ -n "${{ inputs.exclude }}" ]] && while IFS= read -r item; do
+        [[ -n "${{ steps.config.outputs.exclude }}" ]] && while IFS= read -r item; do
           item="$(echo "$item" | xargs)"
           [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
-        done <<< "${{ inputs.exclude }}"
+        done <<< "${{ steps.config.outputs.exclude }}"
         tree -L 2 || ls -R
 
     - name: Commit and optionally push changes
@@ -111,7 +170,7 @@ runs:
         token: ${{ inputs.token }}
         branch: ${{ inputs.branch }}
         commit-message: ${{ inputs.commit-message }}
-        title: "chore: sync template from ${{ inputs.template-repository }}@${{ inputs.template-branch }}"
+        title: "chore: sync template from ${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}"
         body: |
           This PR updates configuration files from
-          [${{ inputs.template-repository }}@${{ inputs.template-branch }}](https://github.com/${{ inputs.template-repository }}/tree/${{ inputs.template-branch }}).
+          [${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}](https://github.com/${{ steps.config.outputs.template_repository }}/tree/${{ steps.config.outputs.template_branch }}).

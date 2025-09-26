@@ -48,18 +48,20 @@ jobs:
         uses: jebel-quant/sync_template@main
         with:
           token: ${{ secrets.PAT_TOKEN }}
-          template-repository: ${{ env.TEMPLATE_REPO }}
-          template-branch: ${{ env.TEMPLATE_BRANCH }}
+          source: './sync-config.yml'
           branch: ${{ env.TARGET_BRANCH }}
           commit-message: "chore: sync template files"
-          include: |
-            .github
-            templates
-            .gitignore
-            .markdownlint.yaml
-            .editorconfig
-            .pre-commit-config.yaml
-            Makefile
+          # You can also provide these directly, which will override values from the source file
+          # template-repository: ${{ env.TEMPLATE_REPO }}
+          # template-branch: ${{ env.TEMPLATE_BRANCH }}
+          # include: |
+          #   .github
+          #   templates
+          #   .gitignore
+          #   .markdownlint.yaml
+          #   .editorconfig
+          #   .pre-commit-config.yaml
+          #   Makefile
 ```
 
 ## Inputs
@@ -67,12 +69,13 @@ jobs:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | token | GitHub token or PAT for authentication | Yes | N/A |
-| template-repository | Template repository to sync from | Yes | N/A |
-| template-branch | Branch in the template repo | No | main |
+| source | Path to the YAML configuration file containing template settings | Yes | N/A |
+| template-repository | Template repository to sync from (overrides value from source file) | No | N/A |
+| template-branch | Branch in the template repo (overrides value from source file) | No | main |
 | branch | Target branch in the current repo | No | sync/update |
 | commit-message | Commit message for sync | No | chore: sync template |
-| include | Files and folders to include (multi-line) | No | (empty) |
-| exclude | Files and folders to exclude (multi-line) | No | (empty) |
+| include | Files and folders to include (multi-line) (overrides value from source file) | No | (empty) |
+| exclude | Files and folders to exclude (multi-line) (overrides value from source file) | No | (empty) |
 | test-mode | If true, skip push and PR creation | No | false |
 
 ## How It Works
@@ -110,6 +113,37 @@ When using this action to sync workflow files (files in `.github/workflows/`), y
    - Check "Allow GitHub Actions to create and approve pull requests"
 
 The action will automatically detect when workflow files are being modified and provide appropriate warnings.
+
+### Configuration File
+
+You can specify the template settings in a YAML configuration file and reference it using the `source` parameter. This allows you to maintain template sync configurations separately from your workflow files.
+
+Example configuration file (`sync-config.yml`):
+
+```yaml
+template-repository: 'organization/template-repo'
+template-branch: 'main'
+include: |
+  .github
+  templates
+  .gitignore
+  .markdownlint.yaml
+exclude: |
+  .github/workflows/sync.yml
+```
+
+Then in your workflow:
+
+```yaml
+- name: Sync Template
+  uses: jebel-quant/sync_template@main
+  with:
+    token: ${{ secrets.PAT_TOKEN }}
+    source: './sync-config.yml'
+    branch: 'sync/update'
+```
+
+The action will read the template repository, branch, include, and exclude values from the configuration file. You can override any of these values by providing them directly as inputs to the action.
 
 ### Include and Exclude Parameters
 

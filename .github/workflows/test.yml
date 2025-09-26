@@ -30,17 +30,26 @@ jobs:
           # Create a branch to test on
           git checkout -b test-branch
           
-      - name: Run Sync Template Action
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create test config file
+        run: |
+          cat > test-config.yml << EOF
           template-repository: ${{ github.repository }}
-          branch: test-branch
-          commit-message: "test: sync template files"
+          template-branch: main
           include: |
             CODE_OF_CONDUCT.md
             CONTRIBUTING.md
           exclude: |
             README.md
+          EOF
+          
+      - name: Run Sync Template Action
+        uses: ./
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          source: './test-config.yml'
+          branch: test-branch
+          commit-message: "test: sync template files"
+          test-mode: "true"
             
       - name: Verify synced files
         run: |

@@ -83,6 +83,20 @@ echo -e "${YELLOW}Simulating action execution${NC}"
 # Save the branch name to ensure we stay on it
 BRANCH_NAME="sync/update-configs"
 
+# Create a config file
+echo "Creating config file"
+cat > sync-config.yml << EOF
+template-repository: ${SOURCE_REPO}
+template-branch: main
+include: |
+  CODE_OF_CONDUCT.md
+  CONTRIBUTING.md
+  .github/
+exclude: |
+  README.md
+  LICENSE
+EOF
+
 # Step 1: Sparse checkout from template repo
 echo "Performing sparse checkout"
 git remote add template "${SOURCE_REPO}"
@@ -98,14 +112,23 @@ git config user.name "Test User"
 git config user.email "test@example.com"
 git remote add origin "${SOURCE_REPO}"
 git config core.sparseCheckout true
-echo "CODE_OF_CONDUCT.md" > .git/info/sparse-checkout
-echo "CONTRIBUTING.md" >> .git/info/sparse-checkout
-echo ".github/" >> .git/info/sparse-checkout
+# Read include patterns from config file
+while IFS= read -r pattern; do
+  pattern="$(echo "$pattern" | xargs)"
+  [ -z "$pattern" ] || echo "$pattern" >> .git/info/sparse-checkout
+done < <(grep -A 10 "^include: |" ../sync-config.yml | tail -n +2 | grep -v "^exclude:")
 git pull origin main --depth=1
 
 # Step 2: Apply excludes
 echo "Applying excludes"
-# Don't remove these files from .template-temp as they'll be excluded during copy
+# First, remove the .git directory
+rm -rf .git
+
+# Read exclude patterns from config file and remove files
+while IFS= read -r pattern; do
+  pattern="$(echo "$pattern" | xargs)"
+  [ -z "$pattern" ] || rm -rf "$pattern" 2>/dev/null || true
+done < <(grep -A 10 "^exclude: |" ../sync-config.yml | tail -n +2)
 
 # Make sure we're on the sync/update-configs branch before copying files
 cd "${TARGET_REPO}"
@@ -113,10 +136,8 @@ git checkout sync/update-configs
 
 # Step 3: Copy template files to target repo
 echo "Copying template files"
-# Copy only the specific files we want, excluding README.md and LICENSE
-cp -R .template-temp/.github .
-cp -R .template-temp/CODE_OF_CONDUCT.md .
-cp -R .template-temp/CONTRIBUTING.md .
+# Copy all files from template temp directory
+cp -R .template-temp/. .
 rm -rf .template-temp
 
 # Step 4: Commit and push changes

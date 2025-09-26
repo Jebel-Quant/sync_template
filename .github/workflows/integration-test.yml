@@ -25,14 +25,6 @@ jobs:
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          template-repository: ${{ github.repository }}
+          source: './tests/sample-config.yml'
           branch: test-branch
-          include: |
-            CODE_OF_CONDUCT.md
-            CONTRIBUTING.md
-          exclude: |
-            README.md
-            LICENSE
-        env:
-          # Set to true to skip the actual push in test environment
-          TEST_MODE: "true"
+          test-mode: "true"
