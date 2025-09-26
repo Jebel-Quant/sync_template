@@ -1,0 +1,8 @@
+template-repository: jebel-quant/sync_template
+template-branch: main
+include: |
+  CODE_OF_CONDUCT.md
+  CONTRIBUTING.md
+exclude: |
+  README.md
+  LICENSE

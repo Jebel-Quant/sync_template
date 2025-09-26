@@ -21,25 +21,10 @@ jobs:
       - name: Run test script
         run: ./tests/test-action.sh
 
-      - name: Create template.yml file
-        run: |
-          cat > template.yml << EOF
-          template-repository: ${{ github.repository }}
-          template-branch: main
-          include: |
-            CODE_OF_CONDUCT.md
-            CONTRIBUTING.md
-          exclude: |
-            README.md
-            LICENSE
-          EOF
-          ls -all
-
-          
       - name: Test action in workflow
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          source: 'template.yml'
+          source: '.github/template.yml'
           branch: test-branch
           test-mode: "true"
