@@ -96,6 +96,7 @@ runs:
         tree -L 2 || ls -R
 
     - name: Commit and optionally push changes
+      id: commit-changes
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
@@ -108,8 +109,11 @@ runs:
         git status
         if git diff --cached --quiet; then
           echo "✅ No changes to commit"
+          echo "changes_detected=false" >> $GITHUB_OUTPUT
           exit 0
         fi
+        
+        echo "changes_detected=true" >> $GITHUB_OUTPUT
 
         # Warn if workflow files are modified
         if git diff --cached --name-only | grep -q "^\.github/workflows/"; then
@@ -141,8 +145,9 @@ runs:
           fi
         fi
 
-    - name: Create Pull Request (if not in test mode)
-      if: ${{ inputs.test-mode != 'true' }}
+    - name: Create Pull Request (if not in test mode and there are changes)
+      id: create-pr
+      if: ${{ inputs.test-mode != 'true' && steps.commit-changes.outputs.changes_detected == 'true' }}
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ inputs.token }}
