@@ -9,27 +9,12 @@ inputs:
   source:
     description: 'Path to the YAML configuration file containing template settings'
     required: true
-  #template-repository:
-  #  description: 'Template repository to sync from (overrides value from source file)'
-  #  required: false
-  #template-branch:
-  #  description: 'Branch in the template repo (overrides value from source file)'
-  #  required: false
-  #  default: 'main'
   branch:
     description: 'Target branch in the current repo'
     default: 'sync/update'
   commit-message:
     description: 'Commit message for sync'
     default: 'chore: sync template'
-  #include:
-  #  description: 'Files and folders to include (multi-line) (overrides value from source file)'
-  #  required: false
-  #  default: |
-  #exclude:
-  #  description: 'Files and folders to exclude (multi-line) (overrides value from source file)'
-  #  required: false
-  #  default: |
   test-mode:
     description: 'If true, skip push and PR creation'
     default: 'false'
@@ -93,6 +78,14 @@ runs:
         echo "exclude<<EOF" >> $GITHUB_OUTPUT
         echo "$EXCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Checkout parsed data
+      shell: bash
+      run: |
+        echo "Repo ${{ steps.config.outputs.template_repository }}"
+        echo "Branch ${{ steps.config.outputs.template_branch }}"
+        echo "Include ${{ steps.config.outputs.include }}"
+        echo "Exclude ${{ steps.config.outputs.exclude }}"
 
     - name: Sparse checkout template
       uses: actions/checkout@v5
