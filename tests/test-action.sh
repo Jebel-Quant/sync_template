@@ -112,14 +112,25 @@ git config user.name "Test User"
 git config user.email "test@example.com"
 git remote add origin "${SOURCE_REPO}"
 git config core.sparseCheckout true
-echo "CODE_OF_CONDUCT.md" > .git/info/sparse-checkout
-echo "CONTRIBUTING.md" >> .git/info/sparse-checkout
-echo ".github/" >> .git/info/sparse-checkout
+
+# Read include patterns from template.yml file
+while IFS= read -r pattern; do
+  pattern="$(echo "$pattern" | xargs)"
+  [ -z "$pattern" ] || echo "$pattern" >> .git/info/sparse-checkout
+done < <(grep -A 10 "^include: |" ../template.yml | tail -n +2 | grep -v "^exclude:")
+
 git pull origin main --depth=1
 
 # Step 2: Apply excludes
 echo "Applying excludes"
-# Don't remove these files from .template-temp as they'll be excluded during copy
+# First, remove the .git directory
+rm -rf .git
+
+# Read exclude patterns from template.yml file and remove files
+while IFS= read -r pattern; do
+  pattern="$(echo "$pattern" | xargs)"
+  [ -z "$pattern" ] || rm -rf "$pattern" 2>/dev/null || true
+done < <(grep -A 10 "^exclude: |" ../template.yml | tail -n +2)
 
 # Make sure we're on the sync/update-configs branch before copying files
 cd "${TARGET_REPO}"
@@ -127,10 +138,8 @@ git checkout sync/update-configs
 
 # Step 3: Copy template files to target repo
 echo "Copying template files"
-# Copy only the specific files we want, excluding README.md and LICENSE
-cp -R .template-temp/.github .
-cp -R .template-temp/CODE_OF_CONDUCT.md .
-cp -R .template-temp/CONTRIBUTING.md .
+# Copy all files from template temp directory
+cp -R .template-temp/. .
 rm -rf .template-temp
 
 # Step 4: Commit and push changes

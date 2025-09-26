@@ -33,6 +33,8 @@ jobs:
             README.md
             LICENSE
           EOF
+          ls -all
+
           
       - name: Test action in workflow
         uses: ./
