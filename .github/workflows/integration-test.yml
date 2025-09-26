@@ -25,6 +25,6 @@ jobs:
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          source: './tests/sample-config.yml'
+          source: '.github/template.yml'
           branch: test-branch
           test-mode: "true"

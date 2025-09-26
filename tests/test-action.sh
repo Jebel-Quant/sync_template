@@ -83,9 +83,9 @@ echo -e "${YELLOW}Simulating action execution${NC}"
 # Save the branch name to ensure we stay on it
 BRANCH_NAME="sync/update-configs"
 
-# Create a config file
-echo "Creating config file"
-cat > sync-config.yml << EOF
+# Create template.yml file
+echo "Creating template.yml file"
+cat > template.yml << EOF
 template-repository: ${SOURCE_REPO}
 template-branch: main
 include: |
@@ -112,11 +112,13 @@ git config user.name "Test User"
 git config user.email "test@example.com"
 git remote add origin "${SOURCE_REPO}"
 git config core.sparseCheckout true
-# Read include patterns from config file
+
+# Read include patterns from template.yml file
 while IFS= read -r pattern; do
   pattern="$(echo "$pattern" | xargs)"
   [ -z "$pattern" ] || echo "$pattern" >> .git/info/sparse-checkout
-done < <(grep -A 10 "^include: |" ../sync-config.yml | tail -n +2 | grep -v "^exclude:")
+done < <(grep -A 10 "^include: |" ../template.yml | tail -n +2 | grep -v "^exclude:")
+
 git pull origin main --depth=1
 
 # Step 2: Apply excludes
@@ -124,11 +126,11 @@ echo "Applying excludes"
 # First, remove the .git directory
 rm -rf .git
 
-# Read exclude patterns from config file and remove files
+# Read exclude patterns from template.yml file and remove files
 while IFS= read -r pattern; do
   pattern="$(echo "$pattern" | xargs)"
   [ -z "$pattern" ] || rm -rf "$pattern" 2>/dev/null || true
-done < <(grep -A 10 "^exclude: |" ../sync-config.yml | tail -n +2)
+done < <(grep -A 10 "^exclude: |" ../template.yml | tail -n +2)
 
 # Make sure we're on the sync/update-configs branch before copying files
 cd "${TARGET_REPO}"

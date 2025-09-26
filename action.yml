@@ -22,6 +22,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Checkout the target repo
+      uses: actions/checkout@v5
+      with:
+        token: ${{ inputs.token }}
+        fetch-depth: 0
+        #persist-credentials: 'false'
+
     - name: Ensure inside a git repository
       shell: bash
       run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
@@ -30,9 +37,11 @@ runs:
       shell: bash
       id: config
       run: |
-        echo "Reading configuration from ${{ inputs.source }}"
-        if [ ! -f "${{ inputs.source }}" ]; then
-          echo "::error::Configuration file not found: ${{ inputs.source }}"
+        CONFIG_FILE="${{ inputs.source }}"
+        echo "Reading configuration from ${CONFIG_FILE}"
+        
+        if [ ! -f "${CONFIG_FILE}" ]; then
+          echo "::error::Configuration file not found: ${CONFIG_FILE}"
           exit 1
         fi
         
@@ -47,45 +56,26 @@ runs:
         fi
         
         # Read values from config file
-        TEMPLATE_REPO="${{ inputs.template-repository }}"
-        if [ -z "$TEMPLATE_REPO" ]; then
-          TEMPLATE_REPO=$($YQ_CMD '.template-repository' "${{ inputs.source }}")
-          if [ "$TEMPLATE_REPO" = "null" ]; then
-            echo "::error::template-repository not found in config file and not provided as input"
-            exit 1
-          fi
+        TEMPLATE_REPO=$($YQ_CMD '.template-repository' "${CONFIG_FILE}")
+        if [ "$TEMPLATE_REPO" = "null" ] || [ -z "$TEMPLATE_REPO" ]; then
+          echo "::error::template-repository not found in ${CONFIG_FILE}"
+          exit 1
         fi
         echo "template_repository=$TEMPLATE_REPO" >> $GITHUB_OUTPUT
         
-        TEMPLATE_BRANCH="${{ inputs.template-branch }}"
-        if [ -z "$TEMPLATE_BRANCH" ]; then
-          TEMPLATE_BRANCH=$($YQ_CMD '.template-branch // "main"' "${{ inputs.source }}")
-        fi
+        TEMPLATE_BRANCH=$($YQ_CMD '.template-branch // "main"' "${CONFIG_FILE}")
         echo "template_branch=$TEMPLATE_BRANCH" >> $GITHUB_OUTPUT
         
-        INCLUDE="${{ inputs.include }}"
-        if [ -z "$INCLUDE" ]; then
-          INCLUDE=$($YQ_CMD '.include // ""' "${{ inputs.source }}")
-        fi
+        # Read include and exclude patterns if present
+        INCLUDE=$($YQ_CMD '.include // ""' "${CONFIG_FILE}")
         echo "include<<EOF" >> $GITHUB_OUTPUT
         echo "$INCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
         
-        EXCLUDE="${{ inputs.exclude }}"
-        if [ -z "$EXCLUDE" ]; then
-          EXCLUDE=$($YQ_CMD '.exclude // ""' "${{ inputs.source }}")
-        fi
+        EXCLUDE=$($YQ_CMD '.exclude // ""' "${CONFIG_FILE}")
         echo "exclude<<EOF" >> $GITHUB_OUTPUT
         echo "$EXCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Checkout parsed data
-      shell: bash
-      run: |
-        echo "Template repository: ${{ steps.config.outputs.template_repository }}"
-        echo "Branch in template:  ${{ steps.config.outputs.template_branch }}"
-        echo "Include:\n ${{ steps.config.outputs.include }}"
-        echo "Exclude:\n ${{ steps.config.outputs.exclude }}"
 
     - name: Sparse checkout template
       uses: actions/checkout@v5
@@ -97,35 +87,28 @@ runs:
         sparse-checkout-cone-mode: false
         fetch-depth: 0
         token: ${{ inputs.token }}
-        persist-credentials: 'false'
+        #persist-credentials: 'false'
 
     - name: Clean template and apply excludes
       shell: bash
       working-directory: .template-temp
       run: |
-        echo "Checkout template after sparse checkout"
-        ls -all
         rm -rf .git
-        echo "Removing the git folder"
-        ls -all
-        echo "Excludes: ${{ steps.config.outputs.exclude }}"
-        
         if [[ -n "${{ steps.config.outputs.exclude }}" ]]; then
-          echo "The exclude list is not empty"
           while IFS= read -r item; do
             item="$(echo "$item" | xargs)"
             [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
           done <<< "${{ steps.config.outputs.exclude }}"
         fi
+        tree -L 2 || ls -R
 
     - name: Commit and optionally push changes
+      id: commit-changes
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         TEST_MODE: ${{ inputs.test-mode }}
       run: |
-        echo "Before copying the template files into..."
-        ls -all
         cp -R .template-temp/. .
         rm -rf .template-temp
 
@@ -133,8 +116,11 @@ runs:
         git status
         if git diff --cached --quiet; then
           echo "✅ No changes to commit"
+          echo "changes_detected=false" >> $GITHUB_OUTPUT
           exit 0
         fi
+        
+        echo "changes_detected=true" >> $GITHUB_OUTPUT
 
         # Warn if workflow files are modified
         if git diff --cached --name-only | grep -q "^\.github/workflows/"; then
@@ -145,14 +131,13 @@ runs:
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.commit-message }}"
 
-        echo "Setting up remote with PAT"
-        git remote remove origin || true
-        git remote add origin "https://${GITHUB_ACTOR}:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+        # Configure remote with token
+        # git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
 
+        echo "✅ Remote after reset (masked):"
         git remote -v | sed -E 's@(https://)[^@]+@\\1****@g'
 
         echo "🔁 Testing ls-remote with this token..."
-        git config --global credential.helper ""
         git ls-remote --heads origin || echo "❌ ls-remote failed"
 
         if [[ "${TEST_MODE}" == "true" ]]; then
@@ -167,9 +152,9 @@ runs:
           fi
         fi
 
-
-    - name: Create Pull Request (if not in test mode)
-      if: ${{ inputs.test-mode != 'true' }}
+    - name: Create Pull Request (if not in test mode and there are changes)
+      id: create-pr
+      if: ${{ inputs.test-mode != 'true' && steps.commit-changes.outputs.changes_detected == 'true' }}
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ inputs.token }}
@@ -179,3 +164,4 @@ runs:
         body: |
           This PR updates configuration files from
           [${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}](https://github.com/${{ steps.config.outputs.template_repository }}/tree/${{ steps.config.outputs.template_branch }}).
+        delete-branch: true

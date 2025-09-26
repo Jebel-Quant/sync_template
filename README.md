@@ -6,62 +6,45 @@ into other repositories.
 ## Usage
 
 ```yaml
-# Workflow: Sync
-# Purpose: This workflow synchronizes configuration files from the template repository
-#          to other repositories, creating a pull request with the changes.
-#
-# Trigger: This workflow runs manually via workflow_dispatch
-#
-# Components:
-#   - 📥 Checkout the target repository
-#   - 🔄 Sync configuration templates
-#   - 📝 Create a pull request with the changes
-
-name: SYNC
+name: Sync Template Files
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 1'  # Weekly on Monday at midnight
-
-permissions:
-  contents: write  # Needed to create releases
-
-env:
-  TEMPLATE_REPO: 'tschm/latex'
-  TEMPLATE_BRANCH: 'main'
-  TARGET_BRANCH: 'sync/update'
+    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Optional: Add permissions for the default GITHUB_TOKEN
+    # permissions:
+    #   contents: write
+    #   workflows: write  # Required to modify workflow files
     steps:
-      - name: Checkout the target repo
+      - name: Checkout
         uses: actions/checkout@v5
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
-          fetch-depth: 0
-          persist-credentials: 'false'
+
+      # Create a template.yml file in your repository with your template configuration
+      # Example template.yml:
+      # template-repository: 'organization/template-repo'
+      # template-branch: 'main'
+      # include: |
+      #   .github
+      #   .devcontainer
+      # exclude: |
+      #   README.md
 
       - name: Sync Template
-        id: sync
         uses: jebel-quant/sync_template@main
         with:
-          token: ${{ secrets.PAT_TOKEN }}
-          source: './sync-config.yml'
-          branch: ${{ env.TARGET_BRANCH }}
-          commit-message: "chore: sync template files"
-          # You can also provide these directly, which will override values from the source file
-          # template-repository: ${{ env.TEMPLATE_REPO }}
-          # template-branch: ${{ env.TEMPLATE_BRANCH }}
-          # include: |
-          #   .github
-          #   templates
-          #   .gitignore
-          #   .markdownlint.yaml
-          #   .editorconfig
-          #   .pre-commit-config.yaml
-          #   Makefile
+          source: './template.yml'  # Path to your configuration file
+          branch: 'sync/update-configs'
+          commit-message: 'chore: sync template files'
+          # Option 1: Use default GITHUB_TOKEN (won't work for workflow files unless permissions are set above)
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Option 2: Use a PAT with workflow permissions (recommended for syncing workflow files)
+          # token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
 ```
 
 ## Inputs
@@ -70,13 +53,10 @@ jobs:
 |-------|-------------|----------|---------|
 | token | GitHub token or PAT for authentication | Yes | N/A |
 | source | Path to the YAML configuration file containing template settings | Yes | N/A |
-| template-repository | Template repository to sync from (overrides value from source file) | No | N/A |
-| template-branch | Branch in the template repo (overrides value from source file) | No | main |
 | branch | Target branch in the current repo | No | sync/update |
 | commit-message | Commit message for sync | No | chore: sync template |
-| include | Files and folders to include (multi-line) (overrides value from source file) | No | (empty) |
-| exclude | Files and folders to exclude (multi-line) (overrides value from source file) | No | (empty) |
 | test-mode | If true, skip push and PR creation | No | false |
+
 
 ## How It Works
 
@@ -116,34 +96,33 @@ The action will automatically detect when workflow files are being modified and 
 
 ### Configuration File
 
-You can specify the template settings in a YAML configuration file and reference it using the `source` parameter. This allows you to maintain template sync configurations separately from your workflow files.
+The action reads template configuration from a YAML file specified by the `source` parameter. This allows you to maintain template settings separately from your workflow files.
 
-Example configuration file (`sync-config.yml`):
+Example configuration file (e.g., `template.yml`):
 
 ```yaml
+# Required: Repository to sync from
 template-repository: 'organization/template-repo'
+
+# Optional: Branch in the template repository (defaults to 'main')
 template-branch: 'main'
+
+# Optional: Files and folders to include
 include: |
   .github
-  templates
-  .gitignore
-  .markdownlint.yaml
+  .devcontainer
+  CODE_OF_CONDUCT.md
+
+# Optional: Files and folders to exclude
 exclude: |
-  .github/workflows/sync.yml
+  README.md
+  LICENSE
 ```
 
-Then in your workflow:
-
-```yaml
-- name: Sync Template
-  uses: jebel-quant/sync_template@main
-  with:
-    token: ${{ secrets.PAT_TOKEN }}
-    source: './sync-config.yml'
-    branch: 'sync/update'
-```
-
-The action will read the template repository, branch, include, and exclude values from the configuration file. You can override any of these values by providing them directly as inputs to the action.
+When using the configuration file:
+1. You must specify the path to this file using the `source` parameter
+2. The file must contain at least the `template-repository` value
+3. Other values (`template-branch`, `include`, `exclude`) are optional
 
 ### Include and Exclude Parameters
 
@@ -180,10 +159,10 @@ in CI environments.
 Example:
 
 ```yaml
-- name: Test Sync Template Actio
+- name: Test Sync Template Action
   uses: jebel-quant/sync_template@main
   with:
-    template-repository: 'organization/template-repo'
+    source: './template.yml'
     token: ${{ secrets.GITHUB_TOKEN }}
     test-mode: "true"
 ```
