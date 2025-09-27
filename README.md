@@ -13,38 +13,22 @@ on:
     - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
   workflow_dispatch:  # Allow manual triggering
 
+permissions:
+  contents: write        # Needed to create releases
+  pull-requests: write   # Needed to create pull requests
+  
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # Optional: Add permissions for the default GITHUB_TOKEN
-    # permissions:
-    #   contents: write
-    #   workflows: write  # Required to modify workflow files
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      # Create a template.yml file in your repository with your template configuration
-      # Example template.yml:
-      # template-repository: 'organization/template-repo'
-      # template-branch: 'main'
-      # include: |
-      #   .github
-      #   .devcontainer
-      # exclude: |
-      #   README.md
-
       - name: Sync Template
         uses: jebel-quant/sync_template@main
         with:
           source: './template.yml'  # Path to your configuration file
           branch: 'sync/update-configs'
           commit-message: 'chore: sync template files'
-          # Option 1: Use default GITHUB_TOKEN (won't work for workflow files unless permissions are set above)
           token: ${{ secrets.GITHUB_TOKEN }}
-          
-          # Option 2: Use a PAT with workflow permissions (recommended for syncing workflow files)
-          # token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
 ```
 
 ## Inputs

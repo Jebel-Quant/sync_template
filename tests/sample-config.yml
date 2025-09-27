@@ -1,8 +1,0 @@
-template-repository: 'jebel-quant/sync_template'
-template-branch: 'main'
-include: |
-  .github
-  README.md
-  LICENSE
-exclude: |
-  .github/workflows/integration-test.yml
