@@ -23,12 +23,13 @@ jobs:
 
     steps:
       - name: Sync Template
-        uses: jebel-quant/sync_template@v0.4.0
+        uses: jebel-quant/sync_template@v0.4.1
         with:
           source: './template.yml'  # Path to your configuration file
           branch: 'sync/update-configs'
           commit-message: 'chore: sync template files'
           token: ${{ secrets.GITHUB_TOKEN }}
+          automerge: true
 ```
 
 ## Inputs
@@ -66,21 +67,6 @@ gh pr merge <number> --merge --auto --delete-branch
 ```
 
 This merges the PR once it meets merge requirements and deletes the branch afterward.
-
-### Which PRs does Renovate's `automerge: true` affect?
-
-The `automerge: true` setting in `.github/renovate.json` only applies to pull requests that Renovate opens. 
-In this repository's configuration, that means:
-
-- Renovate PRs created by the enabled managers: `pre-commit` and `github-actions`.
-- Subject to the schedule and timezone: only during "before 10am on tuesday" in the `Asia/Dubai` timezone.
-- Subject to repository rules: automerge will happen only when all required checks pass and branch protection rules allow merging.
-- With `automergeType: "pr"` and `platformAutomerge: true`, GitHub performs a native PR merge when eligible.
-
-What it does not affect:
-
-- Manually created pull requests or PRs opened by other tools/bots.
-- PRs created by this Sync Template action itself. Those are handled separately by the action's own auto-merge step using GitHub CLI (see section above).
 
 ### GitHub Token Permissions
 
