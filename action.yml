@@ -18,7 +18,10 @@ inputs:
   test-mode:
     description: 'If true, skip push and PR creation'
     default: 'false'
-
+  automerge:
+    description: 'If true, enable auto-merge on the PR'
+    default: 'false'
+    
 runs:
   using: "composite"
   steps:
@@ -168,7 +171,7 @@ runs:
 
     - name: Enable auto-merge
       shell: bash
-      if: ${{ steps.create-pr.outputs.pull-request-number != '' }}
+      if: ${{ inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number != '' }}
       env:
         GH_TOKEN: ${{ inputs.token }}
       run: |

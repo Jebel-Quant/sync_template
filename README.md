@@ -40,6 +40,7 @@ jobs:
 | branch | Target branch in the current repo | No | sync/update |
 | commit-message | Commit message for sync | No | chore: sync template |
 | test-mode | If true, skip push and PR creation | No | false |
+| automerge | If true, enable auto-merge for the created PR | No | false |
 
 
 ## How It Works
@@ -58,7 +59,7 @@ Pull requests are created using the peter-evans/create-pull-request action, whic
 
 ### Auto-merge
 
-After a PR is created, this action enables auto-merge when a PR number is available (condition: `steps.create-pr.outputs.pull-request-number != ''`). It uses GitHub CLI with:
+After a PR is created, this action enables auto-merge only when you set `with.automerge: 'true'` and a PR number is available (condition: `inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number != ''`). It uses GitHub CLI with:
 
 ```
 gh pr merge <number> --merge --auto --delete-branch

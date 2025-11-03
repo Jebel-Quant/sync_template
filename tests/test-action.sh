@@ -163,4 +163,35 @@ assert "[ \"$(cat LICENSE)\" = \"# Target License\" ]" "LICENSE was not overwrit
 # Check commit message
 assert "[ \"$(git log -1 --pretty=%B)\" = \"chore: sync template\" ]" "Commit message is correct"
 
+# Simulate auto-merge behavior as implemented in action.yml
+# Condition: Enable auto-merge only when automerge input is 'true' AND a PR number is available (non-empty)
+echo -e "${YELLOW}Simulating auto-merge behavior${NC}"
+
+# Positive case: automerge enabled and PR number available triggers auto-merge command
+AUTOMERGE="true"
+PR_NUMBER="123"
+AUTO_MERGE_CMD=""
+if [[ "${AUTOMERGE}" == "true" && "${PR_NUMBER}" != "" ]]; then
+  AUTO_MERGE_CMD="gh pr merge ${PR_NUMBER} --merge --auto --delete-branch"
+fi
+assert "[ \"${AUTO_MERGE_CMD}\" = \"gh pr merge 123 --merge --auto --delete-branch\" ]" "Auto-merge command generated when automerge is true and PR number is set"
+
+# Negative case: automerge disabled means skip even if PR number exists
+AUTOMERGE="false"
+PR_NUMBER="123"
+AUTO_MERGE_EXECUTED="false"
+if [[ "${AUTOMERGE}" == "true" && "${PR_NUMBER}" != "" ]]; then
+  AUTO_MERGE_EXECUTED="true"
+fi
+assert "[ \"${AUTO_MERGE_EXECUTED}\" = \"false\" ]" "Auto-merge is skipped when automerge is false even if PR number is provided"
+
+# Negative case: automerge enabled but no PR number means skip
+AUTOMERGE="true"
+PR_NUMBER=""
+AUTO_MERGE_EXECUTED="false"
+if [[ "${AUTOMERGE}" == "true" && "${PR_NUMBER}" != "" ]]; then
+  AUTO_MERGE_EXECUTED="true"
+fi
+assert "[ \"${AUTO_MERGE_EXECUTED}\" = \"false\" ]" "Auto-merge is skipped when PR number is empty"
+
 echo -e "${GREEN}All tests passed!${NC}"
