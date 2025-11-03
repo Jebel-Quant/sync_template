@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Sync Template
-        uses: jebel-quant/sync_template@main
+        uses: jebel-quant/sync_template@v0.4.0
         with:
           source: './template.yml'  # Path to your configuration file
           branch: 'sync/update-configs'
@@ -163,7 +163,7 @@ Example:
 
 ```yaml
 - name: Test Sync Template Action
-  uses: jebel-quant/sync_template@main
+  uses: jebel-quant/sync_template@v0.4.0
   with:
     source: './template.yml'
     token: ${{ secrets.GITHUB_TOKEN }}

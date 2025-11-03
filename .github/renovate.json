@@ -10,6 +10,9 @@
         "pre-commit",
         "github-actions"
     ],
+    "automerge": true,
+    "automergeType": "pr",
+    "platformAutomerge": true,
     "timezone": "Asia/Dubai",
     "schedule": [
         "before 10am on tuesday"
