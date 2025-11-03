@@ -165,3 +165,14 @@ runs:
           This PR updates configuration files from
           [${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}](https://github.com/${{ steps.config.outputs.template_repository }}/tree/${{ steps.config.outputs.template_branch }}).
         delete-branch: true
+
+    - name: Enable auto-merge
+      shell: bash
+      if: ${{ steps.create-pr.outputs.pull-request-number != '' }}
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} \
+          --merge \
+          --auto \
+          --delete-branch

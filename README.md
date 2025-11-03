@@ -14,7 +14,7 @@ on:
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
-  contents: write        # Needed to create releases
+  contents: write        # Needed to push commits
   pull-requests: write   # Needed to create pull requests
   
 jobs:
@@ -54,33 +54,51 @@ This action performs the following steps:
 
 The action uses sparse checkout to minimize the amount of data that needs to be downloaded, making it efficient even with large template repositories. 
 
-The pull request creation step uses GitHub's REST API to check if a PR already exists for the branch and creates one if needed. This ensures that multiple workflow runs don't create duplicate PRs.
+Pull requests are created using the peter-evans/create-pull-request action, which opens or updates a PR from the sync branch and avoids creating duplicates across runs. When a PR is created, the next step enables auto-merge using GitHub CLI (gh pr merge --merge --auto --delete-branch) so that approved PRs merge automatically and the branch is cleaned up.
+
+### Auto-merge
+
+After a PR is created, this action enables auto-merge when a PR number is available (condition: `steps.create-pr.outputs.pull-request-number != ''`). It uses GitHub CLI with:
+
+```
+gh pr merge <number> --merge --auto --delete-branch
+```
+
+This merges the PR once it meets merge requirements and deletes the branch afterward.
 
 ### GitHub Token Permissions
 
 When using this action to sync workflow files (files in `.github/workflows/`), you need to be aware of GitHub's token permission restrictions:
 
-1. **Default `GITHUB_TOKEN`**: Does not have permission to update workflow files in a repository. If you try to sync workflow files using the default token, you'll get an error like:
+1. **Default `GITHUB_TOKEN`**: Does not have permission to update workflow files in a repository. 
+If you try to sync workflow files using the default token, you'll get an error like:
+
    ```
    ! [remote rejected] HEAD -> sync/update (refusing to allow a GitHub App to create or update workflow without `workflows` permission)
    ```
 
 2. **Personal Access Token (PAT)**: To sync workflow files, you must use a PAT with the `workflow` scope. Configure this in your workflow:
+
    ```yaml
    with:
      token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
    ```
 
 3. **Repository Settings**: Alternatively, you can modify the default token permissions in your repository settings:
+
    - Go to Settings > Actions > General
    - Under "Workflow permissions", select "Read and write permissions"
    - Check "Allow GitHub Actions to create and approve pull requests"
 
-The action will automatically detect when workflow files are being modified and provide appropriate warnings.
+The action will automatically detect when workflow files are being modified 
+and provide appropriate warnings.
 
 ### Configuration File
 
-The action reads template configuration from a YAML file specified by the `source` parameter. This allows you to maintain template settings separately from your workflow files.
+The action reads template configuration from a YAML file 
+specified by the `source` parameter. 
+This allows you to maintain template settings separately 
+from your workflow files.
 
 Example configuration file (e.g., `template.yml`):
 
@@ -104,6 +122,7 @@ exclude: |
 ```
 
 When using the configuration file:
+
 1. You must specify the path to this file using the `source` parameter
 2. The file must contain at least the `template-repository` value
 3. Other values (`template-branch`, `include`, `exclude`) are optional
@@ -172,4 +191,5 @@ Contributions are welcome! Here's how you can contribute:
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
 
-Please make sure to update tests as appropriate and adhere to the existing coding style.
+Please make sure to update tests as appropriate and adhere 
+to the existing coding style.
