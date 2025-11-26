@@ -13,7 +13,7 @@ jobs:
     name: Run Integration Tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Make test script executable
         run: chmod +x ./tests/test-action.sh
