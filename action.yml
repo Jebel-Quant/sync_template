@@ -40,10 +40,7 @@ runs:
 
     - name: Ensure inside a git repository
       shell: bash
-      run: git rev-parse --is-inside-work-tree >/dev/null || {
-        echo "❌ Not in a git repository";
-        exit 1;
-      }
+      run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
 
     # ------------------------------------------------------------
     # Parse configuration (repository, branch, ref, includes, excludes)
