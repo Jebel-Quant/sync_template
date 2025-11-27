@@ -21,141 +21,158 @@ inputs:
   automerge:
     description: 'If true, enable auto-merge on the PR'
     default: 'false'
-    
+  template-ref:
+    description: 'Tag or branch to check out from the template repository (overrides template-branch)'
+    required: false
+
 runs:
   using: "composite"
   steps:
+
+    # ------------------------------------------------------------
+    # Checkout target repo
+    # ------------------------------------------------------------
     - name: Checkout the target repo
       uses: actions/checkout@v6
       with:
         token: ${{ inputs.token }}
         fetch-depth: 0
-        #persist-credentials: 'false'
 
     - name: Ensure inside a git repository
       shell: bash
       run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
 
+    # ------------------------------------------------------------
+    # Parse configuration (repository, branch, ref, includes, excludes)
+    # ------------------------------------------------------------
     - name: Parse configuration file
       shell: bash
       id: config
       run: |
         CONFIG_FILE="${{ inputs.source }}"
         echo "Reading configuration from ${CONFIG_FILE}"
-        
-        if [ ! -f "${CONFIG_FILE}" ]; then
+
+        if [[ ! -f "${CONFIG_FILE}" ]]; then
           echo "::error::Configuration file not found: ${CONFIG_FILE}"
           exit 1
         fi
-        
-        # Install yq if not available
-        if ! command -v yq &> /dev/null; then
-          echo "Installing yq..."
-          wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+
+        # Install yq if needed
+        if ! command -v yq &>/dev/null; then
+          wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           chmod +x /tmp/yq
-          YQ_CMD="/tmp/yq"
+          YQ="/tmp/yq"
         else
-          YQ_CMD="yq"
+          YQ="yq"
         fi
-        
-        # Read values from config file
-        TEMPLATE_REPO=$($YQ_CMD '.template-repository' "${CONFIG_FILE}")
-        if [ "$TEMPLATE_REPO" = "null" ] || [ -z "$TEMPLATE_REPO" ]; then
-          echo "::error::template-repository not found in ${CONFIG_FILE}"
+
+        TEMPLATE_REPO="$($YQ '.template-repository // ""' "${CONFIG_FILE}")"
+        if [[ -z "$TEMPLATE_REPO" ]]; then
+          echo "::error::template-repository missing in ${CONFIG_FILE}"
           exit 1
         fi
         echo "template_repository=$TEMPLATE_REPO" >> $GITHUB_OUTPUT
-        
-        TEMPLATE_BRANCH=$($YQ_CMD '.template-branch // "main"' "${CONFIG_FILE}")
+
+        TEMPLATE_BRANCH="$($YQ '.template-branch // "main"' "${CONFIG_FILE}")"
         echo "template_branch=$TEMPLATE_BRANCH" >> $GITHUB_OUTPUT
+
+        TEMPLATE_REF="$($YQ '.template-ref // ""' "${CONFIG_FILE}")"
+        echo "template_ref=$TEMPLATE_REF" >> $GITHUB_OUTPUT
         
-        # Read include and exclude patterns if present
-        INCLUDE=$($YQ_CMD '.include // ""' "${CONFIG_FILE}")
+        # New: Tag/Ref override
+        #TEMPLATE_REF_INPUT="${{ inputs.template-ref }}"
+        #TEMPLATE_REF_CONFIG="$($YQ '.template-ref // ""' "${CONFIG_FILE}")"
+        #TEMPLATE_REF="${TEMPLATE_REF_INPUT:-$TEMPLATE_REF_CONFIG}"
+        #echo "template_ref=$TEMPLATE_REF" >> $GITHUB_OUTPUT
+
+        # Include patterns
+        INCLUDE="$($YQ '.include // ""' "${CONFIG_FILE}")"
         echo "include<<EOF" >> $GITHUB_OUTPUT
         echo "$INCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        
-        EXCLUDE=$($YQ_CMD '.exclude // ""' "${CONFIG_FILE}")
+
+        # Exclude patterns
+        EXCLUDE="$($YQ '.exclude // ""' "${CONFIG_FILE}")"
         echo "exclude<<EOF" >> $GITHUB_OUTPUT
         echo "$EXCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
+    # ------------------------------------------------------------
+    # Sparse checkout template (branch or tag -> ref)
+    # ------------------------------------------------------------
     - name: Sparse checkout template
       uses: actions/checkout@v6
       with:
         repository: ${{ steps.config.outputs.template_repository }}
-        ref: ${{ steps.config.outputs.template_branch }}
+        ref: ${{ steps.config.outputs.template_ref || steps.config.outputs.template_branch }}
         path: .template-temp
+        token: ${{ inputs.token }}
+        fetch-depth: 0
         sparse-checkout: ${{ steps.config.outputs.include }}
         sparse-checkout-cone-mode: false
-        fetch-depth: 0
-        token: ${{ inputs.token }}
-        #persist-credentials: 'false'
 
+    # ------------------------------------------------------------
+    # Clean template and apply excludes
+    # ------------------------------------------------------------
     - name: Clean template and apply excludes
       shell: bash
       working-directory: .template-temp
       run: |
         rm -rf .git
-        if [[ -n "${{ steps.config.outputs.exclude }}" ]]; then
-          while IFS= read -r item; do
+        EXCLUDES="${{ steps.config.outputs.exclude }}"
+
+        if [[ -n "$EXCLUDES" ]]; then
+          echo "$EXCLUDES" | while IFS= read -r item; do
+            [[ -z "$item" ]] && continue
             item="$(echo "$item" | xargs)"
-            [ -z "$item" ] || rm -rf "$item" 2>/dev/null || true
-          done <<< "${{ steps.config.outputs.exclude }}"
+            rm -rf "$item" 2>/dev/null || true
+          done
         fi
+
         tree -L 2 || ls -R
 
+    # ------------------------------------------------------------
+    # Apply template + commit & push
+    # ------------------------------------------------------------
     - name: Commit and optionally push changes
       id: commit-changes
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
         TEST_MODE: ${{ inputs.test-mode }}
       run: |
         cp -R .template-temp/. .
         rm -rf .template-temp
 
         git add -A
-        git status
+
         if git diff --cached --quiet; then
-          echo "✅ No changes to commit"
           echo "changes_detected=false" >> $GITHUB_OUTPUT
+          echo "No changes."
           exit 0
         fi
-        
+
         echo "changes_detected=true" >> $GITHUB_OUTPUT
 
-        # Warn if workflow files are modified
-        if git diff --cached --name-only | grep -q "^\.github/workflows/"; then
-          echo "⚠️ Workflow files detected. Use PAT with 'workflow' scope."
+        if git diff --cached --name-only | grep -q '^\.github/workflows/'; then
+          echo "⚠️ Workflow files modified — PAT with workflow scope required."
         fi
 
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config user.name  'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
         git commit -m "${{ inputs.commit-message }}"
 
-        # Configure remote with token
-        # git remote set-url origin "https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git"
-
-        echo "✅ Remote after reset (masked):"
-        git remote -v | sed -E 's@(https://)[^@]+@\\1****@g'
-
-        echo "🔁 Testing ls-remote with this token..."
-        git ls-remote --heads origin || echo "❌ ls-remote failed"
-
-        if [[ "${TEST_MODE}" == "true" ]]; then
-          echo "🧪 Test mode: skipping push and PR creation"
-        else
-          echo "🚀 Pushing changes to branch '${{ inputs.branch }}'..."
-          if git push origin "HEAD:${{ inputs.branch }}" --force-with-lease; then
-            echo "✅ Sync complete"
-          else
-            echo "⚠️ Push failed. Check permissions."
-            exit 1
-          fi
+        if [[ "$TEST_MODE" == "true" ]]; then
+          echo "🧪 Test mode: skipping push"
+          exit 0
         fi
 
-    - name: Create Pull Request (if not in test mode and there are changes)
+        target_branch="${{ inputs.branch }}"
+        git push origin "HEAD:$target_branch" --force-with-lease
+
+    # ------------------------------------------------------------
+    # Create Pull Request
+    # ------------------------------------------------------------
+    - name: Create Pull Request
       id: create-pr
       if: ${{ inputs.test-mode != 'true' && steps.commit-changes.outputs.changes_detected == 'true' }}
       uses: peter-evans/create-pull-request@v7
@@ -163,15 +180,18 @@ runs:
         token: ${{ inputs.token }}
         branch: ${{ inputs.branch }}
         commit-message: ${{ inputs.commit-message }}
-        title: "chore: sync template from ${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}"
+        delete-branch: false
+        title: "chore: sync template from ${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_ref || steps.config.outputs.template_branch }}"
         body: |
-          This PR updates configuration files from
-          [${{ steps.config.outputs.template_repository }}@${{ steps.config.outputs.template_branch }}](https://github.com/${{ steps.config.outputs.template_repository }}/tree/${{ steps.config.outputs.template_branch }}).
-        delete-branch: true
+          This PR syncs the template from:
+          **${{ steps.config.outputs.template_repository }} @ ${{ steps.config.outputs.template_ref || steps.config.outputs.template_branch }}**
 
+    # ------------------------------------------------------------
+    # Auto-merge
+    # ------------------------------------------------------------
     - name: Enable auto-merge
+      if: ${{ inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number }}
       shell: bash
-      if: ${{ inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number != '' }}
       env:
         GH_TOKEN: ${{ inputs.token }}
       run: |
