@@ -29,10 +29,10 @@ runs:
   using: "composite"
   steps:
 
-    # ------------------------------------------------------------
+    # -------------------------
     # Checkout target repo
-    # ------------------------------------------------------------
-    - name: Checkout the target repo
+    # -------------------------
+    - name: Checkout target repository
       uses: actions/checkout@v6
       with:
         token: ${{ inputs.token }}
@@ -40,24 +40,25 @@ runs:
 
     - name: Ensure inside a git repository
       shell: bash
-      run: git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
+      run: |
+        git rev-parse --is-inside-work-tree >/dev/null || { echo "❌ Not in a git repository"; exit 1; }
 
-    # ------------------------------------------------------------
-    # Parse configuration (repository, branch, ref, includes, excludes)
-    # ------------------------------------------------------------
-    - name: Parse configuration file
+    # -------------------------
+    # Parse configuration
+    # -------------------------
+    - name: Parse template configuration
       shell: bash
       id: config
       run: |
         CONFIG_FILE="${{ inputs.source }}"
-        echo "Reading configuration from ${CONFIG_FILE}"
+        echo "Reading configuration from $CONFIG_FILE"
 
-        if [[ ! -f "${CONFIG_FILE}" ]]; then
-          echo "::error::Configuration file not found: ${CONFIG_FILE}"
+        if [[ ! -f "$CONFIG_FILE" ]]; then
+          echo "::error::Configuration file not found: $CONFIG_FILE"
           exit 1
         fi
 
-        # Install yq if needed
+        # Install yq if missing
         if ! command -v yq &>/dev/null; then
           wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           chmod +x /tmp/yq
@@ -66,54 +67,44 @@ runs:
           YQ="yq"
         fi
 
-        TEMPLATE_REPO="$($YQ '.template-repository // ""' "${CONFIG_FILE}")"
-        if [[ -z "$TEMPLATE_REPO" ]]; then
-          echo "::error::template-repository missing in ${CONFIG_FILE}"
-          exit 1
-        fi
+        # Template repository
+        TEMPLATE_REPO="$($YQ '.template-repository // ""' "$CONFIG_FILE")"
+        [[ -z "$TEMPLATE_REPO" ]] && { echo "::error::template-repository missing in $CONFIG_FILE"; exit 1; }
         echo "template_repository=$TEMPLATE_REPO" >> $GITHUB_OUTPUT
 
-        TEMPLATE_BRANCH="$($YQ '.template-branch // "main"' "${CONFIG_FILE}")"
+        # Branch & ref
+        TEMPLATE_BRANCH="$($YQ '.template-branch // "main"' "$CONFIG_FILE")"
+        TEMPLATE_REF_CONFIG="$($YQ '.template-ref // ""' "$CONFIG_FILE")"
+        TEMPLATE_REF="${{ inputs.template-ref }}:${{ inputs.template-ref != '' && echo ${{ inputs.template-ref }} || echo $TEMPLATE_REF_CONFIG }}"
+        [[ -z "$TEMPLATE_REF" ]] && TEMPLATE_REF="$TEMPLATE_BRANCH"
         echo "template_branch=$TEMPLATE_BRANCH" >> $GITHUB_OUTPUT
-
-        TEMPLATE_REF="$($YQ '.template-ref // ""' "${CONFIG_FILE}")"
         echo "template_ref=$TEMPLATE_REF" >> $GITHUB_OUTPUT
-        
-        # New: Tag/Ref override
-        #TEMPLATE_REF_INPUT="${{ inputs.template-ref }}"
-        #TEMPLATE_REF_CONFIG="$($YQ '.template-ref // ""' "${CONFIG_FILE}")"
-        #TEMPLATE_REF="${TEMPLATE_REF_INPUT:-$TEMPLATE_REF_CONFIG}"
-        #echo "template_ref=$TEMPLATE_REF" >> $GITHUB_OUTPUT
 
-        # Include patterns - support both pipe (|) and list (-) syntax
-        INCLUDE_TYPE="$($YQ '.include | type' "${CONFIG_FILE}" 2>/dev/null || echo "null")"
+        # Include patterns
+        INCLUDE_TYPE="$($YQ '.include | type' "$CONFIG_FILE" 2>/dev/null || echo "null")"
         if [[ "$INCLUDE_TYPE" == "!!seq" ]]; then
-          # It's a YAML list with dashes
-          INCLUDE="$($YQ '.include[]' "${CONFIG_FILE}")"
+          INCLUDE="$($YQ '.include[]' "$CONFIG_FILE")"
         else
-          # It's a string (pipe syntax) or doesn't exist
-          INCLUDE="$($YQ '.include // ""' "${CONFIG_FILE}")"
+          INCLUDE="$($YQ '.include // ""' "$CONFIG_FILE")"
         fi
         echo "include<<EOF" >> $GITHUB_OUTPUT
         echo "$INCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-        # Exclude patterns - support both pipe (|) and list (-) syntax
-        EXCLUDE_TYPE="$($YQ '.exclude | type' "${CONFIG_FILE}" 2>/dev/null || echo "null")"
+        # Exclude patterns
+        EXCLUDE_TYPE="$($YQ '.exclude | type' "$CONFIG_FILE" 2>/dev/null || echo "null")"
         if [[ "$EXCLUDE_TYPE" == "!!seq" ]]; then
-          # It's a YAML list with dashes
-          EXCLUDE="$($YQ '.exclude[]' "${CONFIG_FILE}")"
+          EXCLUDE="$($YQ '.exclude[]' "$CONFIG_FILE")"
         else
-          # It's a string (pipe syntax) or doesn't exist
-          EXCLUDE="$($YQ '.exclude // ""' "${CONFIG_FILE}")"
+          EXCLUDE="$($YQ '.exclude // ""' "$CONFIG_FILE")"
         fi
         echo "exclude<<EOF" >> $GITHUB_OUTPUT
         echo "$EXCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    # ------------------------------------------------------------
-    # Sparse checkout template (branch or tag -> ref)
-    # ------------------------------------------------------------
+    # -------------------------
+    # Sparse checkout template
+    # -------------------------
     - name: Sparse checkout template
       uses: actions/checkout@v6
       with:
@@ -125,9 +116,9 @@ runs:
         sparse-checkout: ${{ steps.config.outputs.include }}
         sparse-checkout-cone-mode: false
 
-    # ------------------------------------------------------------
+    # -------------------------
     # Clean template and apply excludes
-    # ------------------------------------------------------------
+    # -------------------------
     - name: Clean template and apply excludes
       shell: bash
       working-directory: .template-temp
@@ -143,11 +134,13 @@ runs:
           done
         fi
 
-        tree -L 2 || ls -R
+        if [[ "${{ inputs.test-mode }}" == "true" ]]; then
+          tree -L 2 || ls -R
+        fi
 
-    # ------------------------------------------------------------
+    # -------------------------
     # Apply template + commit & push
-    # ------------------------------------------------------------
+    # -------------------------
     - name: Commit and optionally push changes
       id: commit-changes
       shell: bash
@@ -180,12 +173,11 @@ runs:
           exit 0
         fi
 
-        target_branch="${{ inputs.branch }}"
-        git push origin "HEAD:$target_branch" --force-with-lease
+        git push origin "HEAD:${{ inputs.branch }}" --force-with-lease
 
-    # ------------------------------------------------------------
+    # -------------------------
     # Create Pull Request
-    # ------------------------------------------------------------
+    # -------------------------
     - name: Create Pull Request
       id: create-pr
       if: ${{ inputs.test-mode != 'true' && steps.commit-changes.outputs.changes_detected == 'true' }}
@@ -200,15 +192,20 @@ runs:
           This PR syncs the template from:
           **${{ steps.config.outputs.template_repository }} @ ${{ steps.config.outputs.template_ref || steps.config.outputs.template_branch }}**
 
-    # ------------------------------------------------------------
+    # -------------------------
     # Auto-merge
-    # ------------------------------------------------------------
+    # -------------------------
     - name: Enable auto-merge
       if: ${{ inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number }}
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
       run: |
+        if ! command -v gh &>/dev/null; then
+          echo "Installing GitHub CLI..."
+          curl -sSL https://github.com/cli/cli/releases/latest/download/gh_$(uname -s)_amd64.tar.gz | tar -xz -C /tmp
+          export PATH="/tmp/gh_$(uname -s)_amd64/bin:$PATH"
+        fi
         gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} \
           --merge \
           --auto \
