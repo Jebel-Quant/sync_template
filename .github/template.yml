@@ -3,6 +3,6 @@ template-branch: main
 include: |
   CODE_OF_CONDUCT.md
   CONTRIBUTING.md
-exclude: |
-  README.md
-  LICENSE
+exclude:
+  - README.md
+  - LICENSE
