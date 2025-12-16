@@ -244,11 +244,8 @@ assert "[ \"$INCLUDE_TYPE\" = \"!!seq\" ]" "Include field is recognized as a seq
 assert "[ \"$EXCLUDE_TYPE\" = \"!!seq\" ]" "Exclude field is recognized as a sequence"
 
 # Check that parsed values contain expected content
-echo "$INCLUDE" | grep -q "CODE_OF_CONDUCT.md"
-assert "[ \$? -eq 0 ]" "Include contains CODE_OF_CONDUCT.md"
-echo "$INCLUDE" | grep -q "CONTRIBUTING.md"
-assert "[ \$? -eq 0 ]" "Include contains CONTRIBUTING.md"
-echo "$EXCLUDE" | grep -q "README.md"
-assert "[ \$? -eq 0 ]" "Exclude contains README.md"
+assert "echo \"$INCLUDE\" | grep -q 'CODE_OF_CONDUCT.md'" "Include contains CODE_OF_CONDUCT.md"
+assert "echo \"$INCLUDE\" | grep -q 'CONTRIBUTING.md'" "Include contains CONTRIBUTING.md"
+assert "echo \"$EXCLUDE\" | grep -q 'README.md'" "Exclude contains README.md"
 
 echo -e "${GREEN}All tests passed!${NC}"
