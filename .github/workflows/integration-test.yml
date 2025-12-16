@@ -22,9 +22,20 @@ jobs:
         run: ./tests/test-action.sh
 
       - name: Test action in workflow
+        id: test-sync
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           source: '.github/template.yml'
           branch: test-branch
           test-mode: "true"
+
+      - name: Verify changes-detected output
+        run: |
+          echo "Changes detected: ${{ steps.test-sync.outputs.changes-detected }}"
+          if [[ "${{ steps.test-sync.outputs.changes-detected }}" == "true" ]] || [[ "${{ steps.test-sync.outputs.changes-detected }}" == "false" ]]; then
+            echo "✅ Output is valid (true or false)"
+          else
+            echo "❌ Output is invalid: ${{ steps.test-sync.outputs.changes-detected }}"
+            exit 1
+          fi

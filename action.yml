@@ -25,6 +25,11 @@ inputs:
     description: 'Tag or branch to check out from the template repository (overrides template-branch)'
     required: false
 
+outputs:
+  changes-detected:
+    description: 'Whether changes were detected during the sync (true or false)'
+    value: ${{ steps.commit-changes.outputs.changes_detected }}
+
 runs:
   using: "composite"
   steps:

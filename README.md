@@ -43,6 +43,39 @@ jobs:
 | test-mode | If true, skip push and PR creation | No | false |
 | automerge | If true, enable auto-merge for the created PR | No | false |
 
+## Outputs
+
+| Output | Description |
+|--------|-------------|
+| changes-detected | Whether changes were detected during the sync (`true` or `false`) |
+
+### Using Outputs
+
+You can use the `changes-detected` output in subsequent steps. This is particularly useful in test mode:
+
+```yaml
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Sync Template
+        id: sync
+        uses: jebel-quant/sync_template@v0.4.1
+        with:
+          source: './template.yml'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          test-mode: "true"
+      
+      - name: Check if changes were detected
+        run: |
+          if [[ "${{ steps.sync.outputs.changes-detected }}" == "true" ]]; then
+            echo "Changes were detected!"
+          else
+            echo "No changes detected."
+          fi
+```
+
 
 ## How It Works
 
