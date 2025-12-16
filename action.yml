@@ -85,14 +85,28 @@ runs:
         #TEMPLATE_REF="${TEMPLATE_REF_INPUT:-$TEMPLATE_REF_CONFIG}"
         #echo "template_ref=$TEMPLATE_REF" >> $GITHUB_OUTPUT
 
-        # Include patterns
-        INCLUDE="$($YQ '.include // ""' "${CONFIG_FILE}")"
+        # Include patterns - support both pipe (|) and list (-) syntax
+        INCLUDE_TYPE="$($YQ '.include | type' "${CONFIG_FILE}" 2>/dev/null || echo "null")"
+        if [[ "$INCLUDE_TYPE" == "!!seq" ]]; then
+          # It's a YAML list with dashes
+          INCLUDE="$($YQ '.include[]' "${CONFIG_FILE}")"
+        else
+          # It's a string (pipe syntax) or doesn't exist
+          INCLUDE="$($YQ '.include // ""' "${CONFIG_FILE}")"
+        fi
         echo "include<<EOF" >> $GITHUB_OUTPUT
         echo "$INCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-        # Exclude patterns
-        EXCLUDE="$($YQ '.exclude // ""' "${CONFIG_FILE}")"
+        # Exclude patterns - support both pipe (|) and list (-) syntax
+        EXCLUDE_TYPE="$($YQ '.exclude | type' "${CONFIG_FILE}" 2>/dev/null || echo "null")"
+        if [[ "$EXCLUDE_TYPE" == "!!seq" ]]; then
+          # It's a YAML list with dashes
+          EXCLUDE="$($YQ '.exclude[]' "${CONFIG_FILE}")"
+        else
+          # It's a string (pipe syntax) or doesn't exist
+          EXCLUDE="$($YQ '.exclude // ""' "${CONFIG_FILE}")"
+        fi
         echo "exclude<<EOF" >> $GITHUB_OUTPUT
         echo "$EXCLUDE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT

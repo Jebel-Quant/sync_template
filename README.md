@@ -111,17 +111,40 @@ template-repository: 'organization/template-repo'
 # Optional: Branch in the template repository (defaults to 'main')
 template-branch: 'main'
 
-# Optional: Files and folders to include
+# Optional: Files and folders to include (using pipe syntax)
 include: |
   .github
   .devcontainer
   CODE_OF_CONDUCT.md
 
-# Optional: Files and folders to exclude
+# Optional: Files and folders to exclude (using pipe syntax)
 exclude: |
   README.md
   LICENSE
 ```
+
+Alternatively, you can use YAML list syntax with dashes:
+
+```yaml
+# Required: Repository to sync from
+template-repository: 'organization/template-repo'
+
+# Optional: Branch in the template repository (defaults to 'main')
+template-branch: 'main'
+
+# Optional: Files and folders to include (using list syntax)
+include:
+  - .github
+  - .devcontainer
+  - CODE_OF_CONDUCT.md
+
+# Optional: Files and folders to exclude (using list syntax)
+exclude:
+  - README.md
+  - LICENSE
+```
+
+Both formats are supported and can even be mixed (e.g., using pipe syntax for `include` and list syntax for `exclude`).
 
 When using the configuration file:
 
