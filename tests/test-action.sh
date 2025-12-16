@@ -194,4 +194,58 @@ if [[ "${AUTOMERGE}" == "true" && "${PR_NUMBER}" != "" ]]; then
 fi
 assert "[ \"${AUTO_MERGE_EXECUTED}\" = \"false\" ]" "Auto-merge is skipped when PR number is empty"
 
+# Test list format for include/exclude
+echo -e "${YELLOW}Testing YAML list format for include/exclude${NC}"
+
+# Setup a new test with list format
+cd "${TARGET_REPO}"
+# Clean up previous test files
+git checkout main 2>/dev/null || git checkout -b main
+git reset --hard HEAD~1 2>/dev/null || true
+git checkout -b sync/test-list-format
+
+# Create template.yml with list format
+cat > template-list.yml << EOF
+template-repository: ${SOURCE_REPO}
+template-branch: main
+include:
+  - CODE_OF_CONDUCT.md
+  - CONTRIBUTING.md
+exclude:
+  - README.md
+EOF
+
+# Install yq if needed
+if ! command -v yq &>/dev/null; then
+  wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+  chmod +x /tmp/yq
+  YQ="/tmp/yq"
+else
+  YQ="yq"
+fi
+
+# Parse the list format using same logic as action.yml
+INCLUDE_TYPE="$($YQ '.include | type' template-list.yml 2>/dev/null || echo "null")"
+if [[ "$INCLUDE_TYPE" == "!!seq" ]]; then
+  INCLUDE="$($YQ '.include[]' template-list.yml)"
+else
+  INCLUDE="$($YQ '.include // ""' template-list.yml)"
+fi
+
+EXCLUDE_TYPE="$($YQ '.exclude | type' template-list.yml 2>/dev/null || echo "null")"
+if [[ "$EXCLUDE_TYPE" == "!!seq" ]]; then
+  EXCLUDE="$($YQ '.exclude[]' template-list.yml)"
+else
+  EXCLUDE="$($YQ '.exclude // ""' template-list.yml)"
+fi
+
+# Verify parsed values
+assert "[ \"$INCLUDE_TYPE\" = \"!!seq\" ]" "Include field is recognized as a sequence"
+assert "[ \"$EXCLUDE_TYPE\" = \"!!seq\" ]" "Exclude field is recognized as a sequence"
+
+# Check that parsed values contain expected content
+assert "echo \"$INCLUDE\" | grep -q 'CODE_OF_CONDUCT.md'" "Include contains CODE_OF_CONDUCT.md"
+assert "echo \"$INCLUDE\" | grep -q 'CONTRIBUTING.md'" "Include contains CONTRIBUTING.md"
+assert "echo \"$EXCLUDE\" | grep -q 'README.md'" "Exclude contains README.md"
+
 echo -e "${GREEN}All tests passed!${NC}"

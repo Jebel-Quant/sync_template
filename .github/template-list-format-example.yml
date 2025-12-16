@@ -1,0 +1,11 @@
+# Example configuration file using list format (with dashes)
+# This is an alternative to the pipe syntax shown in template.yml
+
+template-repository: jebel-quant/sync_template
+template-branch: main
+include:
+  - CODE_OF_CONDUCT.md
+  - CONTRIBUTING.md
+exclude:
+  - README.md
+  - LICENSE
