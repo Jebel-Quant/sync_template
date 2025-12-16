@@ -240,8 +240,8 @@ else
 fi
 
 # Verify parsed values
-assert "[ \"\$INCLUDE_TYPE\" = \"!!seq\" ]" "Include field is recognized as a sequence"
-assert "[ \"\$EXCLUDE_TYPE\" = \"!!seq\" ]" "Exclude field is recognized as a sequence"
+assert "[ \"$INCLUDE_TYPE\" = \"!!seq\" ]" "Include field is recognized as a sequence"
+assert "[ \"$EXCLUDE_TYPE\" = \"!!seq\" ]" "Exclude field is recognized as a sequence"
 
 # Check that parsed values contain expected content
 echo "$INCLUDE" | grep -q "CODE_OF_CONDUCT.md"
