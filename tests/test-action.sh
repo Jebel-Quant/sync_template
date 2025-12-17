@@ -27,9 +27,9 @@ TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEST_DIR}"' EXIT
 echo "Using temp dir: ${TEST_DIR}"
 
-echo -e "${YELLOW}Cloning jebel-quant/rhiza repository${NC}"
+echo -e "${YELLOW}Cloning tschm/monkeys repository${NC}"
 cd "${TEST_DIR}"
-git clone --quiet https://github.com/jebel-quant/rhiza.git
+git clone --quiet https://github.com/tschm/monkeys.git
 cd rhiza
 
 # ------------------------------------------------------------
@@ -39,7 +39,7 @@ echo -e "${YELLOW}Running rhiza validate${NC}"
 uvx rhiza validate .
 
 echo -e "${YELLOW}Running rhiza materialize${NC}"
-git checkout -B sync/template-update
+# git checkout -B sync/template-update
 uvx rhiza materialize .
 
 # ------------------------------------------------------------
