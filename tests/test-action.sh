@@ -20,18 +20,6 @@ if ! command -v uvx >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-## ------------------------------------------------------------
-## Clone the jebel-quant/rhiza repository to test with
-## ------------------------------------------------------------
-#TEST_DIR="$(mktemp -d)"
-#trap 'rm -rf "${TEST_DIR}"' EXIT
-#echo "Using temp dir: ${TEST_DIR}"
-
-#echo -e "${YELLOW}Cloning tschm/monkeys repository${NC}"
-#cd "${TEST_DIR}"
-#git clone --quiet https://github.com/jebel-quant/sync_template.git
-#cd sync_template
-
 # ------------------------------------------------------------
 # Run rhiza commands (mirror what the action does)
 # ------------------------------------------------------------
