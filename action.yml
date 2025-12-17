@@ -7,10 +7,6 @@ inputs:
     description: GitHub token or PAT for authentication
     required: true
 
-  source:
-    description: Path to the YAML configuration file containing template settings
-    required: true
-
   branch:
     description: Target branch for the sync
     required: false
@@ -57,8 +53,7 @@ runs:
     # ------------------------------------------------------------
     - name: Validate rhiza configuration
       shell: bash
-      run: |
-        uvx rhiza validate "${{ inputs.source }}"
+      run: uvx rhiza validate .
 
     # ------------------------------------------------------------
     # Materialize + commit changes
@@ -71,7 +66,7 @@ runs:
 
         git checkout -B "${{ inputs.branch }}"
 
-        uvx rhiza materialize "${{ inputs.source }}"
+        uvx rhiza materialize .
 
         git add -A
 
