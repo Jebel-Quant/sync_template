@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sync Repository Template
-        uses: jebel-quant/sync_template@v1
+        uses: jebel-quant/sync_template@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: sync/template-update
@@ -138,7 +138,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: jebel-quant/sync_template@v1
+      - uses: jebel-quant/sync_template@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -146,7 +146,7 @@ jobs:
 ### Custom Branch and Commit Message
 
 ```yaml
-- uses: jebel-quant/sync_template@v1
+- uses: jebel-quant/sync_template@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
     branch: template-updates
@@ -158,7 +158,7 @@ jobs:
 If you want to push changes directly without a PR:
 
 ```yaml
-- uses: jebel-quant/sync_template@v1
+- uses: jebel-quant/sync_template@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
     create-pr: 'false'
@@ -169,7 +169,7 @@ If you want to push changes directly without a PR:
 ```yaml
 - name: Sync Template
   id: sync
-  uses: jebel-quant/sync_template@v1
+  uses: jebel-quant/sync_template@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
 
