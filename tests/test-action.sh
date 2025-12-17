@@ -106,7 +106,8 @@ git branch -M main
 # ------------------------------------------------------------
 # Rhiza config
 # ------------------------------------------------------------
-cat > template.yml <<EOF
+mkdir -p .github
+cat > .github/template.yml <<EOF
 template-repository: ${SOURCE_REPO}
 template-branch: main
 include:
