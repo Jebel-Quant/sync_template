@@ -26,9 +26,8 @@ jobs:
         uses: ./
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          source: '.github/template.yml'
           branch: test-branch
-          test-mode: "true"
+          create-pr: "false"
 
       - name: Verify changes-detected output
         run: |

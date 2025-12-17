@@ -1,253 +1,238 @@
-# Sync Template
+# Sync Repository Template
 
-A GitHub Action to sync files from a template repository 
-into other repositories.
+A GitHub Action that synchronizes your repository with a template using [rhiza](https://github.com/rhiza-lab/rhiza). This action validates your rhiza configuration, materializes template changes, and optionally creates a pull request with the updates.
 
-## Usage
+## Quick Start
 
 ```yaml
-name: Sync Template Files
+name: Sync Template
 
 on:
   schedule:
     - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:      # Allow manual triggering
 
 permissions:
-  contents: write        # Needed to push commits
-  pull-requests: write   # Needed to create pull requests
+  contents: write         # Needed to push commits
+  pull-requests: write    # Needed to create pull requests
   
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Sync Template
-        uses: jebel-quant/sync_template@v0.4.1
+      - name: Sync Repository Template
+        uses: jebel-quant/sync_template@v1
         with:
-          source: './template.yml'  # Path to your configuration file
-          branch: 'sync/update-configs'
-          commit-message: 'chore: sync template files'
           token: ${{ secrets.GITHUB_TOKEN }}
-          automerge: true
+          branch: sync/template-update
+          commit-message: 'chore: sync template'
 ```
+
+## What This Action Does
+
+This action automates template synchronization in repositories that use [rhiza](https://github.com/rhiza-lab/rhiza) for template management. It:
+
+1. **Validates** your rhiza configuration using `uvx rhiza validate .`
+2. **Materializes** template changes using `uvx rhiza materialize .`
+3. **Commits** any detected changes to a specified branch
+4. **Creates a pull request** (optional) for reviewing and merging the changes
+
+## Prerequisites
+
+Your repository must be configured to use **rhiza** for template management. Rhiza is a tool for maintaining multiple repositories from a common template, allowing you to keep shared files synchronized while preserving repository-specific customizations.
+
+To use this action, ensure your repository has the necessary rhiza configuration files that define which template to use and how to apply it.
 
 ## Inputs
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| token | GitHub token or PAT for authentication | Yes | N/A |
-| source | Path to the YAML configuration file containing template settings | Yes | N/A |
-| branch | Target branch in the current repo | No | sync/update |
-| commit-message | Commit message for sync | No | chore: sync template |
-| test-mode | If true, skip push and PR creation | No | false |
-| automerge | If true, enable auto-merge for the created PR | No | false |
+| `token` | GitHub token or PAT for authentication | **Yes** | N/A |
+| `branch` | Target branch for the sync | No | `sync/template-update` |
+| `commit-message` | Commit message for the sync | No | `chore: sync template` |
+| `create-pr` | Whether to create a pull request if changes are detected | No | `true` |
 
 ## Outputs
 
 | Output | Description |
 |--------|-------------|
-| changes-detected | Whether changes were detected during the sync (`true` or `false`) |
+| `changes-detected` | Whether changes were detected during the sync (`true` or `false`) |
 
 ### Using Outputs
 
-You can use the `changes-detected` output in subsequent steps. This is particularly useful in test mode:
+You can use the `changes-detected` output to conditionally run subsequent steps:
 
 ```yaml
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Sync Template
+      - name: Sync Repository Template
         id: sync
-        uses: jebel-quant/sync_template@v0.4.1
+        uses: jebel-quant/sync_template@v1
         with:
-          source: './template.yml'
           token: ${{ secrets.GITHUB_TOKEN }}
-          test-mode: "true"
       
-      - name: Check if changes were detected
-        run: |
-          if [[ "${{ steps.sync.outputs.changes-detected }}" == "true" ]]; then
-            echo "Changes were detected!"
-          else
-            echo "No changes detected."
-          fi
+      - name: Notify if changes detected
+        if: steps.sync.outputs.changes-detected == 'true'
+        run: echo "Template changes were synchronized!"
 ```
-
 
 ## How It Works
 
-This action performs the following steps:
+The action executes the following workflow:
 
-1. Checks out the template repository with sparse checkout to only include the specified files/folders
-2. Removes excluded files/folders from the template
-3. Copies the template files into the target repository
-4. Commits and pushes the changes to the specified branch in the target repository
-5. Optionally creates a pull request for the changes
+1. **Checkout**: Checks out your repository with full history
+2. **Install Tools**: Installs `uv` (Python package installer) via `astral-sh/setup-uv`
+3. **Validate**: Runs `uvx rhiza validate .` to ensure your rhiza configuration is valid
+4. **Create Branch**: Creates or updates the target branch
+5. **Materialize**: Runs `uvx rhiza materialize .` to apply template changes
+6. **Detect Changes**: Checks if any files were modified
+7. **Commit & Push**: If changes exist, commits them with the specified message and pushes to the branch
+8. **Create PR**: If `create-pr` is enabled and changes exist, creates a pull request using `peter-evans/create-pull-request`
 
-The action uses sparse checkout to minimize the amount of data that needs to be downloaded, making it efficient even with large template repositories. 
+### Workflow File Detection
 
-Pull requests are created using the peter-evans/create-pull-request action, which opens or updates a PR from the sync branch and avoids creating duplicates across runs. When a PR is created, the next step enables auto-merge using GitHub CLI (gh pr merge --merge --auto --delete-branch) so that approved PRs merge automatically and the branch is cleaned up.
-
-### Auto-merge
-
-After a PR is created, this action enables auto-merge only when you set `with.automerge: 'true'` and a PR number is available (condition: `inputs.automerge == 'true' && steps.create-pr.outputs.pull-request-number != ''`). It uses GitHub CLI with:
+The action automatically detects when workflow files (`.github/workflows/`) are modified and warns you if additional permissions may be required:
 
 ```
-gh pr merge <number> --merge --auto --delete-branch
+⚠️ Workflow files modified — PAT with workflow scope may be required.
 ```
-
-This merges the PR once it meets merge requirements and deletes the branch afterward.
 
 ### GitHub Token Permissions
 
-When using this action to sync workflow files (files in `.github/workflows/`), you need to be aware of GitHub's token permission restrictions:
+For most files, the default `GITHUB_TOKEN` is sufficient. However, when syncing workflow files, you may need additional permissions:
 
-1. **Default `GITHUB_TOKEN`**: Does not have permission to update workflow files in a repository. 
-If you try to sync workflow files using the default token, you'll get an error like:
+1. **Default `GITHUB_TOKEN`**: Works for most files but cannot modify workflow files without additional repository settings.
 
-   ```
-   ! [remote rejected] HEAD -> sync/update (refusing to allow a GitHub App to create or update workflow without `workflows` permission)
-   ```
+2. **Repository Settings** (Recommended): Enable workflow modifications by:
+   - Go to Settings → Actions → General
+   - Under "Workflow permissions", select "Read and write permissions"
+   - Check "Allow GitHub Actions to create and approve pull requests"
 
-2. **Personal Access Token (PAT)**: To sync workflow files, you must use a PAT with the `workflow` scope. Configure this in your workflow:
+3. **Personal Access Token (PAT)**: Alternatively, use a PAT with `workflow` scope:
 
    ```yaml
    with:
      token: ${{ secrets.PAT_WITH_WORKFLOW_SCOPE }}
    ```
 
-3. **Repository Settings**: Alternatively, you can modify the default token permissions in your repository settings:
+## Examples
 
-   - Go to Settings > Actions > General
-   - Under "Workflow permissions", select "Read and write permissions"
-   - Check "Allow GitHub Actions to create and approve pull requests"
+### Basic Usage
 
-The action will automatically detect when workflow files are being modified 
-and provide appropriate warnings.
-
-### Configuration File
-
-The action reads template configuration from a YAML file 
-specified by the `source` parameter. 
-This allows you to maintain template settings separately 
-from your workflow files.
-
-Example configuration file (e.g., `template.yml`):
+Sync template weekly and create a pull request:
 
 ```yaml
-# Required: Repository to sync from
-template-repository: 'organization/template-repo'
+name: Sync Template
 
-# Optional: Branch in the template repository (defaults to 'main')
-template-branch: 'main'
+on:
+  schedule:
+    - cron: '0 0 * * 0'
 
-# Optional: Files and folders to include (using pipe syntax)
-include: |
-  .github
-  .devcontainer
-  CODE_OF_CONDUCT.md
+permissions:
+  contents: write
+  pull-requests: write
 
-# Optional: Files and folders to exclude (using pipe syntax)
-exclude: |
-  README.md
-  LICENSE
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jebel-quant/sync_template@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Alternatively, you can use YAML list syntax with dashes:
+### Custom Branch and Commit Message
 
 ```yaml
-# Required: Repository to sync from
-template-repository: 'organization/template-repo'
-
-# Optional: Branch in the template repository (defaults to 'main')
-template-branch: 'main'
-
-# Optional: Files and folders to include (using list syntax)
-include:
-  - .github
-  - .devcontainer
-  - CODE_OF_CONDUCT.md
-
-# Optional: Files and folders to exclude (using list syntax)
-exclude:
-  - README.md
-  - LICENSE
+- uses: jebel-quant/sync_template@v1
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    branch: template-updates
+    commit-message: 'chore(template): sync latest changes'
 ```
 
-Both formats are supported and can even be mixed (e.g., using pipe syntax for `include` and list syntax for `exclude`).
+### Without Creating Pull Requests
 
-When using the configuration file:
+If you want to push changes directly without a PR:
 
-1. You must specify the path to this file using the `source` parameter
-2. The file must contain at least the `template-repository` value
-3. Other values (`template-branch`, `include`, `exclude`) are optional
+```yaml
+- uses: jebel-quant/sync_template@v1
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    create-pr: 'false'
+```
 
-### Include and Exclude Parameters
+### Conditional Actions Based on Changes
 
-- **Include**: Specifies which files and folders to sync from the template repository. This uses Git's sparse checkout feature to only download the specified files.
+```yaml
+- name: Sync Template
+  id: sync
+  uses: jebel-quant/sync_template@v1
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
 
-- **Exclude**: Allows you to remove specific files or subdirectories from folders that were included. 
-For example, if you include `.github` folder but want to exclude `.github/workflows/sync.yml`, 
-you can list this specific file in the exclude parameter. 
-This is particularly useful when you want most files from 
-a directory but need to exclude a few specific files.
+- name: Run additional tasks
+  if: steps.sync.outputs.changes-detected == 'true'
+  run: |
+    echo "Template was updated, running additional tasks..."
+    # Add your custom logic here
+```
 
 ## Testing
 
-The action includes comprehensive testing to ensure it works correctly:
+The action includes testing to ensure it works correctly:
 
-### Automated Tests
+### Integration Tests
 
-1. **Unit Tests**: A bash script (`tests/test-action.sh`) that simulates the action's functionality by:
-   - Setting up source and target repositories
-   - Performing the sync operations
-   - Validating the results with assertions
+The repository includes an integration test workflow (`.github/workflows/integration-test.yml`) that:
 
-2. **Integration Tests**: GitHub workflow files that test the action:
-   - `.github/workflows/test.yml`: Basic test of the action functionality
-   - `.github/workflows/integration-test.yml`: Runs the test script and tests the action in a workflow
-
-### Test Mode
-
-The action supports a test mode that can be enabled by setting the `test-mode` input parameter to `true`. 
-In test mode, the action will perform all operations 
-except the final git push, making it safe to test 
-in CI environments.
-
-Example:
-
-```yaml
-- name: Test Sync Template Action
-  uses: jebel-quant/sync_template@v0.4.0
-  with:
-    source: './template.yml'
-    token: ${{ secrets.GITHUB_TOKEN }}
-    test-mode: "true"
-```
+1. Runs the test script (`tests/test-action.sh`) to verify rhiza commands work
+2. Executes the action in a workflow environment
+3. Validates the `changes-detected` output
 
 ### Running Tests Locally
 
-To run the test script locally:
+To test the rhiza commands locally:
 
 ```bash
 chmod +x ./tests/test-action.sh
 ./tests/test-action.sh
 ```
 
+This script mirrors the action's behavior by running:
+- `uvx rhiza validate .`
+- `uvx rhiza materialize .`
+
+## About Rhiza
+
+[Rhiza](https://github.com/rhiza-lab/rhiza) is a template synchronization tool that helps maintain consistency across multiple repositories. It allows you to:
+
+- Define a template repository with shared configurations
+- Customize which files to sync and which to keep repository-specific
+- Automatically apply template updates while preserving local changes
+
+For more information about rhiza and how to configure it, visit the [rhiza documentation](https://github.com/rhiza-lab/rhiza).
+
 ## Contributing
 
-Contributions are welcome! Here's how you can contribute:
+Contributions are welcome! To contribute:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Run the tests to ensure everything works
-5. Commit your changes (`git commit -m 'Add some amazing feature'`)
+5. Commit your changes (`git commit -m 'feat: add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
 
-Please make sure to update tests as appropriate and adhere 
-to the existing coding style.
+Please ensure your changes are tested and follow the existing code style.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+Thomas Schmelzer
