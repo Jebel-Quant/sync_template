@@ -108,7 +108,7 @@ git branch -M main
 # ------------------------------------------------------------
 mkdir -p .github
 cat > .github/template.yml <<EOF
-template-repository: ${SOURCE_REPO}
+template-repository: file://${SOURCE_REPO}
 template-branch: main
 include:
   - CODE_OF_CONDUCT.md
