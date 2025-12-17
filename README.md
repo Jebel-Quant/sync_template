@@ -1,6 +1,6 @@
 # Sync Repository Template
 
-A GitHub Action that synchronizes your repository with a template using [rhiza](https://github.com/rhiza-lab/rhiza). This action validates your rhiza configuration, materializes template changes, and optionally creates a pull request with the updates.
+A GitHub Action that synchronizes your repository with a template using [rhiza](https://github.com/jebel-quant/rhiza-cli). This action validates your rhiza configuration, materializes template changes, and optionally creates a pull request with the updates.
 
 ## Quick Start
 
