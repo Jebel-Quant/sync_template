@@ -122,11 +122,11 @@ EOF
 # Run rhiza (this is what the action does)
 # ------------------------------------------------------------
 echo -e "${YELLOW}Running rhiza validate${NC}"
-uvx rhiza validate template.yml
+uvx rhiza validate .
 
 echo -e "${YELLOW}Running rhiza materialize${NC}"
 git checkout -B sync/template-update
-uvx rhiza materialize template.yml
+uvx rhiza materialize .
 
 git add -A
 git commit -qm "chore: sync template"

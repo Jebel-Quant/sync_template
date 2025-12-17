@@ -58,7 +58,14 @@ runs:
     - name: Validate rhiza configuration
       shell: bash
       run: |
-        uvx rhiza validate "${{ inputs.source }}"
+        CONFIG_FILE="${{ inputs.source }}"
+        
+        # If config file is not in the root as template.yml, copy it there temporarily
+        if [[ "$CONFIG_FILE" != "template.yml" ]] && [[ "$CONFIG_FILE" != "./template.yml" ]]; then
+          cp "$CONFIG_FILE" template.yml
+        fi
+        
+        uvx rhiza validate .
 
     # ------------------------------------------------------------
     # Materialize + commit changes
@@ -69,9 +76,16 @@ runs:
       run: |
         set -euo pipefail
 
+        CONFIG_FILE="${{ inputs.source }}"
+        
+        # If config file is not in the root as template.yml, copy it there temporarily
+        if [[ "$CONFIG_FILE" != "template.yml" ]] && [[ "$CONFIG_FILE" != "./template.yml" ]]; then
+          cp "$CONFIG_FILE" template.yml
+        fi
+
         git checkout -B "${{ inputs.branch }}"
 
-        uvx rhiza materialize "${{ inputs.source }}"
+        uvx rhiza materialize .
 
         git add -A
 
