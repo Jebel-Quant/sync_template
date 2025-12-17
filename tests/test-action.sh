@@ -12,6 +12,17 @@ NC='\033[0m'
 echo -e "${YELLOW}Starting test for Sync Repository Template action${NC}"
 
 # ------------------------------------------------------------
+# Ensure uv / uvx is available (mirror action)
+# ------------------------------------------------------------
+if ! command -v uvx >/dev/null 2>&1; then
+  echo -e "${YELLOW}Installing uv / uvx${NC}"
+
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# ------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------
 assert() {
